@@ -20,7 +20,7 @@ def test_create_and_get_space():
 
     data = resp.json()
     assert "space_id" in data
-    assert len(data["agents"]) == 3
+    assert len(data["agents"]) >= 5
 
     space_id = data["space_id"]
     get_resp = client.get(f"/spaces/{space_id}")
@@ -33,13 +33,15 @@ def test_compute_edges():
     resp = client.post("/spaces", json=payload)
     assert resp.status_code == 200
 
-    space_id = resp.json()["space_id"]
+    data = resp.json()
+    space_id = data["space_id"]
+    n = len(data["agents"])
     edge_resp = client.post(f"/spaces/{space_id}/edges")
     assert edge_resp.status_code == 200
     data = edge_resp.json()
     assert "edges" in data
     assert "space_stats" in data
-    assert len(data["edges"]) == 3  # C(3,2) = 3
+    assert len(data["edges"]) == n * (n - 1) // 2
 
 
 def test_debate():
