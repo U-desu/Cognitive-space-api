@@ -1,0 +1,616 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cognitive Space API",
+    "description": "多智能体辩论与认知扩展系统",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/spaces": {
+      "post": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Create Space",
+        "operationId": "create_space_spaces_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSpaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Space"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}": {
+      "get": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Get Space",
+        "operationId": "get_space_spaces__space_id__get",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Space"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}/perspectives": {
+      "post": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Generate Perspectives",
+        "operationId": "generate_perspectives_spaces__space_id__perspectives_post",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}/edges": {
+      "post": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Compute Edges",
+        "operationId": "compute_edges_spaces__space_id__edges_post",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}/debates": {
+      "post": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Create Debate",
+        "operationId": "create_debate_spaces__space_id__debates_post",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}/trajectory": {
+      "get": {
+        "tags": [
+          "spaces"
+        ],
+        "summary": "Get Trajectory",
+        "operationId": "get_trajectory_spaces__space_id__trajectory_get",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spaces/{space_id}/export": {
+      "post": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Export Space",
+        "operationId": "export_space_spaces__space_id__export_post",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Agent": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "persona": {
+            "type": "string",
+            "title": "Persona",
+            "default": ""
+          },
+          "position": {
+            "$ref": "#/components/schemas/Position"
+          },
+          "stance": {
+            "$ref": "#/components/schemas/Stance"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0.8
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "name",
+          "position",
+          "stance"
+        ],
+        "title": "Agent"
+      },
+      "CreateSpaceRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "user_context": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "CreateSpaceRequest"
+      },
+      "DebateRequest": {
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "title": "Edge Id"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "default": "structured"
+          },
+          "rounds": {
+            "type": "integer",
+            "title": "Rounds",
+            "default": 2
+          },
+          "focus_axes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus Axes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "edge_id"
+        ],
+        "title": "DebateRequest"
+      },
+      "Dimension": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "range": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Range"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "range"
+        ],
+        "title": "Dimension"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Position": {
+        "properties": {
+          "authority": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Authority"
+          },
+          "novelty": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Novelty"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authority",
+          "novelty"
+        ],
+        "title": "Position"
+      },
+      "Space": {
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "title": "Space Id"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "dimensions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Dimension"
+            },
+            "type": "object",
+            "title": "Dimensions"
+          },
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array",
+            "title": "Agents"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SpaceMetadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "space_id",
+          "query",
+          "dimensions",
+          "agents",
+          "metadata"
+        ],
+        "title": "Space"
+      },
+      "SpaceMetadata": {
+        "properties": {
+          "space_type": {
+            "type": "string",
+            "title": "Space Type",
+            "default": "general"
+          },
+          "complexity": {
+            "type": "string",
+            "title": "Complexity",
+            "default": "medium"
+          },
+          "estimated_nodes": {
+            "type": "integer",
+            "title": "Estimated Nodes",
+            "default": 3
+          }
+        },
+        "type": "object",
+        "title": "SpaceMetadata"
+      },
+      "Stance": {
+        "type": "string",
+        "enum": [
+          "pro",
+          "con",
+          "neutral"
+        ],
+        "title": "Stance"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

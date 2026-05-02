@@ -191,4 +191,43 @@ chore: 构建/工具链
 
 ---
 
+## 8. 唯一真相源（OpenAPI Schema）
+
+### 8.1 真相源文件
+
+```
+openapi.json                 # 后端 API 唯一真相源（自动导出）
+frontend/src/api-types.ts    # 前端 TypeScript 类型（自动生成）
+```
+
+### 8.2 同步流程
+
+**每次后端接口变更后，必须执行**：
+
+```bash
+# 1. 导出 OpenAPI schema
+cd /Users/zhihu/hackathon/cognitive-space-api
+MOCK_LLM=true python3 scripts/export-schema.py
+
+# 2. 生成前端类型
+python3 scripts/gen-frontend-types.py
+
+# 3. 提交变更
+git add openapi.json frontend/src/api-types.ts
+git commit -m "sync: update API schema and frontend types"
+```
+
+**Plan Mode 中涉及接口变更时**：
+- 实施完成后必须运行 `export-schema.py`
+- 如果生成了新的 Pydantic 模型，必须运行 `gen-frontend-types.py`
+- 将 schema 变更作为 Plan 的一部分记录
+
+### 8.3 前端调用约束
+
+- 前端所有 API 调用必须以 `openapi.json` 为契约
+- 禁止手写与 schema 不一致的类型定义
+- 前端 fetch/axios 调用路径必须与 `ApiEndpoints` 中定义一致
+
+---
+
 *最后更新：2026-05-02*
