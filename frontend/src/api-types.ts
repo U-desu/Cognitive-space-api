@@ -1,63 +1,119 @@
-// Auto-generated from openapi.json — DO NOT EDIT MANUALLY
-// Run: python3 scripts/gen-frontend-types.py
+// Auto-generated from openapi.json + manual supplements
+// DO NOT EDIT MANUALLY — update backend models and regenerate
 
 export interface Agent {
-    agent_id: string;
-    name: string;
-    persona?: string;
-    position: Position;
-    stance: Stance;
-    confidence?: number;
-    domain?: string;
-    summary?: string;
-  }
-
-export interface Createspacerequest {
-    query: string;
-    user_context?: Record<string, unknown> | unknown;
-  }
-
-export interface Debaterequest {
-    edge_id: string;
-    format?: string;
-    rounds?: number;
-    focus_axes?: Array<string> | unknown;
-  }
-
-export interface Dimension {
-    name: string;
-    label: string;
-    range: Array<number>;
-  }
+  agent_id: string
+  name: string
+  persona?: string
+  position: Position
+  stance: Stance
+  confidence?: number
+  domain?: string
+  summary?: string
+}
 
 export interface Position {
-    authority: number;
-    novelty: number;
-  }
+  authority: number
+  novelty: number
+}
+
+export type Stance = 'pro' | 'con' | 'neutral'
 
 export interface Space {
-    space_id: string;
-    query: string;
-    dimensions: Record<string, unknown>;
-    agents: Array<Agent>;
-    metadata: Spacemetadata;
-  }
+  space_id: string
+  query: string
+  dimensions: Record<string, Dimension>
+  agents: Agent[]
+  metadata: SpaceMetadata
+}
 
-export interface Spacemetadata {
-    space_type?: string;
-    complexity?: string;
-    estimated_nodes?: number;
-  }
+export interface Dimension {
+  name: string
+  label: string
+  range: number[]
+}
 
-export type Stance = "pro" | "con" | "neutral";
+export interface SpaceMetadata {
+  space_type?: string
+  complexity?: string
+  estimated_nodes?: number
+}
 
-export interface ApiEndpoints {
-  'health_check_health_get': { method: 'GET'; path: '/health' };
-  'create_space_spaces_post': { method: 'POST'; path: '/spaces' };
-  'get_space_spaces__space_id__get': { method: 'GET'; path: '/spaces/{space_id}' };
-  'create_debate_spaces__space_id__debates_post': { method: 'POST'; path: '/spaces/{space_id}/debates' };
-  'compute_edges_spaces__space_id__edges_post': { method: 'POST'; path: '/spaces/{space_id}/edges' };
-  'export_space_spaces__space_id__export_post': { method: 'POST'; path: '/spaces/{space_id}/export' };
-  'generate_perspectives_spaces__space_id__perspectives_post': { method: 'POST'; path: '/spaces/{space_id}/perspectives' };
-  'get_trajectory_spaces__space_id__trajectory_get': { method: 'GET'; path: '/spaces/{space_id}/trajectory' };
+export interface CreateSpaceRequest {
+  query: string
+  user_context?: Record<string, unknown>
+}
+
+export interface Edge {
+  edge_id: string
+  source: string
+  target: string
+  conflict_score: number
+  conflict_type: 'fundamental' | 'partial' | 'minor'
+  shared_ground: string[]
+  divergence_axes: DivergenceAxis[]
+  debate_recommended: boolean
+}
+
+export interface DivergenceAxis {
+  axis: string
+  a_stance: string
+  b_stance: string
+}
+
+export interface SpaceStats {
+  conflict_density: number
+  consensus_clusters: number
+  diversity_index: number
+}
+
+export interface DebateRequest {
+  edge_id: string
+  format?: string
+  rounds?: number
+  focus_axes?: string[]
+}
+
+export interface Debate {
+  debate_id: string
+  edge_id: string
+  participants: string[]
+  transcript: DebateRound[]
+  synthesis: Synthesis
+  visualization: Record<string, unknown>
+}
+
+export interface DebateRound {
+  round: number
+  turns: DebateTurn[]
+}
+
+export interface DebateTurn {
+  agent: string
+  type: string
+  content: string
+  evidence: string[]
+}
+
+export interface Synthesis {
+  core_conflict: string
+  resolution_suggestion: string
+  agreement_points: string[]
+  divergence_points: string[]
+}
+
+export interface Trajectory {
+  trajectory_id: string
+  space_id: string
+  path: TrajectoryPoint[]
+  cognitive_metrics: Record<string, number>
+  journey_stage: string
+  suggested_next: Record<string, unknown>
+}
+
+export interface TrajectoryPoint {
+  node: string
+  timestamp: number
+  action: string
+  dwell_time: number
 }
