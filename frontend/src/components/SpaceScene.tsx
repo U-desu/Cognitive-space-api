@@ -14,6 +14,17 @@ const STANCE_COLORS: Record<string, string> = {
   neutral: '#f59e0b',
 }
 
+/** Generate a vivid, distinguishable color from edge_id */
+function edgeColor(edgeId: string): string {
+  let hash = 0
+  for (let i = 0; i < edgeId.length; i++) {
+    hash = ((hash << 5) - hash) + edgeId.charCodeAt(i)
+    hash |= 0
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue}, 85%, 60%)`
+}
+
 /** Fibonacci Sphere: evenly distribute N points on a sphere */
 function fibonacciSphere(n: number, radius: number): [number, number, number][] {
   const points: [number, number, number][] = []
@@ -130,10 +141,10 @@ function ConnectionLine({
   onHover,
   onClick,
 }: ConnectionLineProps) {
+  const color = edgeColor(edge.edge_id)
+  const lineWidth = Math.max(0.6, edge.conflict_score * 2.2)
+  const opacity = isHovered ? 1 : 0.35 + edge.conflict_score * 0.45
   const isFundamental = edge.conflict_type === 'fundamental'
-  const color = isFundamental ? '#d946ef' : '#06b6d4'
-  const lineWidth = Math.max(1, edge.conflict_score * 5)
-  const opacity = isHovered ? 1 : 0.3 + edge.conflict_score * 0.5
 
   const midPoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
