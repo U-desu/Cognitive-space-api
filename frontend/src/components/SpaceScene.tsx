@@ -305,10 +305,10 @@ interface Props {
 
 export default function SpaceScene({ onEdgeClick }: Props) {
   return (
-    <div className="w-full h-full">
+    <div className="absolute inset-0">
       <Canvas
         camera={{ position: [0, 0, 5.5], fov: 50 }}
-        style={{ background: '#0a0a0f' }}
+        style={{ width: '100%', height: '100%', background: '#0a0a0f' }}
       >
         <SceneContent onEdgeClick={onEdgeClick} />
       </Canvas>

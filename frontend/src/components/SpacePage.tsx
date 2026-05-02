@@ -78,7 +78,7 @@ export default function SpacePage() {
 
       <MetricsHUD />
 
-      <main className="flex-1 relative">
+      <main className="relative" style={{ height: 'calc(100vh - 120px)' }}>
         <SpaceScene
           onEdgeClick={(edgeId) => setSelectedEdge(edgeId)}
         />
