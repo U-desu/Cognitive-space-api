@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
-import SpaceCanvas from './SpaceCanvas'
+import SpaceScene from './SpaceScene'
 import DebatePanel from './DebatePanel'
 import MetricsHUD from './MetricsHUD'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -79,7 +79,7 @@ export default function SpacePage() {
       <MetricsHUD />
 
       <main className="flex-1 relative">
-        <SpaceCanvas
+        <SpaceScene
           onEdgeClick={(edgeId) => setSelectedEdge(edgeId)}
         />
 
