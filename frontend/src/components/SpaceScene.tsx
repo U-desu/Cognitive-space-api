@@ -54,6 +54,7 @@ export default function SpaceScene({
 
   // Focus base pan (computed to center selected agent)
   const [focusBasePan, setFocusBasePan] = useState({ x: 0, y: 0 })
+  const wasFocusRef = useRef(false)
 
   // Drag state to distinguish click vs drag
   const dragRef = useRef({
@@ -84,6 +85,7 @@ export default function SpaceScene({
   useEffect(() => {
     if (!isFocus || !selectedAgent || !containerRef.current) {
       setFocusBasePan({ x: 0, y: 0 })
+      wasFocusRef.current = isFocus
       return
     }
 
@@ -117,9 +119,12 @@ export default function SpaceScene({
     const basePanY = visibleCenterY - charAfterScaleY
 
     setFocusBasePan({ x: basePanX, y: basePanY })
-    // Reset user pan/zoom for smooth transition
-    setUserPan({ x: 0, y: 0 })
-    setUserZoom(1)
+    // Only reset user pan/zoom when first entering focus mode, not when switching agent inside focus
+    if (!wasFocusRef.current) {
+      setUserPan({ x: 0, y: 0 })
+      setUserZoom(1)
+    }
+    wasFocusRef.current = isFocus
   }, [isFocus, selectedAgent, globalPositions])
 
   // Drag & zoom handlers (real-time, no damping)

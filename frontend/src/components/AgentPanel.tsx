@@ -49,6 +49,24 @@ const MOCK_ZHIHU_QUESTIONS = [
   { title: '副业验证PMF再全职创业靠谱吗？', url: 'https://www.zhihu.com/question/mock004', views: '5.2万' },
 ]
 
+const MOCK_ZHIHU_USERS: Record<string, Array<{ name: string; avatar: string; title: string; followers: string; url: string }>> = {
+  pro: [
+    { name: '张小龙的产品观', avatar: '🔥', title: '连续创业者，前腾讯产品总监', followers: '23.5万', url: 'https://www.zhihu.com/people/zhangxiaolong' },
+    { name: '李想', avatar: '🚀', title: '理想汽车创始人', followers: '18.2万', url: 'https://www.zhihu.com/people/lixiang' },
+    { name: '粥左罗', avatar: '💡', title: '新媒体专家，创业博主', followers: '31.6万', url: 'https://www.zhihu.com/people/zhouzuoluo' },
+  ],
+  con: [
+    { name: '周鸿祎', avatar: '🛡️', title: '360集团创始人', followers: '45.1万', url: 'https://www.zhihu.com/people/zhouhongyi' },
+    { name: '俞敏洪', avatar: '📚', title: '新东方创始人', followers: '32.8万', url: 'https://www.zhihu.com/people/yuminhong' },
+    { name: '半佛仙人', avatar: '🐢', title: '风控博主，反鸡汤达人', followers: '128万', url: 'https://www.zhihu.com/people/banfo' },
+  ],
+  neutral: [
+    { name: '罗振宇', avatar: '🧠', title: '得到App创始人', followers: '56.3万', url: 'https://www.zhihu.com/people/luozhenyu' },
+    { name: '吴晓波', avatar: '📊', title: '财经作家，巴九灵创始人', followers: '41.7万', url: 'https://www.zhihu.com/people/wuxiaobo' },
+    { name: '刘润', avatar: '🔢', title: '润米咨询创始人', followers: '67.4万', url: 'https://www.zhihu.com/people/liurun' },
+  ],
+}
+
 interface Props {
   agentId: string | null
   onClose: () => void
@@ -150,7 +168,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         </div>
         {/* Cluster */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'cluster' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <ClusterContent agents={agents} onBack={() => setPage('debate')} />
+          <ClusterContent agentStance={agent.stance} onBack={() => setPage('debate')} />
         </div>
       </div>
     </div>
@@ -183,7 +201,7 @@ function ProfileContent({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scroll-bounce pb-8">
         <div className="p-5 border-b border-indigo-50">
           <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-2xl shrink-0">
@@ -306,7 +324,27 @@ function DebateContent({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-5 scroll-bounce">
+        {!loading && debate && (
+          <div className="pb-3 border-b border-indigo-50">
+            <p className="text-[10px] text-gray-400 font-bold mb-2">参与辩论的角色</p>
+            <div className="flex items-center gap-3">
+              {participants.map((p) => {
+                const color = p.stance === 'pro' ? '#4ade80' : p.stance === 'con' ? '#fb7185' : '#fbbf24'
+                return (
+                  <button key={p.agent_id} onClick={onCluster} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: color + '30' }}>
+                      {p.stance === 'pro' ? '✅' : p.stance === 'con' ? '❌' : '⚖️'}
+                    </div>
+                    <span className="text-xs font-bold text-gray-600">{p.name}</span>
+                  </button>
+                )
+              })}
+              <div className="ml-auto text-[10px] text-gray-300">点击查看聚类 →</div>
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
@@ -382,31 +420,16 @@ function DebateContent({
         )}
       </div>
 
-      {!loading && debate && (
-        <div className="px-5 py-3 border-t border-indigo-50 bg-white">
-          <p className="text-[10px] text-gray-400 font-bold mb-2">参与辩论的角色</p>
-          <div className="flex items-center gap-3">
-            {participants.map((p) => {
-              const color = p.stance === 'pro' ? '#4ade80' : p.stance === 'con' ? '#fb7185' : '#fbbf24'
-              return (
-                <button key={p.agent_id} onClick={onCluster} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: color + '30' }}>
-                    {p.stance === 'pro' ? '✅' : p.stance === 'con' ? '❌' : '⚖️'}
-                  </div>
-                  <span className="text-xs font-bold text-gray-600">{p.name}</span>
-                </button>
-              )
-            })}
-            <div className="ml-auto text-[10px] text-gray-300">点击查看聚类 →</div>
-          </div>
-        </div>
-      )}
     </>
   )
 }
 
 /* ─────────────── Cluster Page ─────────────── */
-function ClusterContent({ agents, onBack }: { agents: Agent[]; onBack: () => void }) {
+function ClusterContent({ agentStance, onBack }: { agentStance: string; onBack: () => void }) {
+  const users = MOCK_ZHIHU_USERS[agentStance] ?? MOCK_ZHIHU_USERS.neutral
+  const label = STANCE_LABEL[agentStance] ?? '中立派'
+  const color = agentStance === 'pro' ? '#4ade80' : agentStance === 'con' ? '#fb7185' : '#fbbf24'
+
   return (
     <>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-indigo-50">
@@ -419,7 +442,7 @@ function ClusterContent({ agents, onBack }: { agents: Agent[]; onBack: () => voi
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-6 scroll-bounce">
         <div>
           <p className="text-xs text-gray-400 font-bold mb-3">参考知乎问题</p>
           <div className="space-y-2">
@@ -436,28 +459,26 @@ function ClusterContent({ agents, onBack }: { agents: Agent[]; onBack: () => voi
         </div>
 
         <div>
-          <p className="text-xs text-gray-400 font-bold mb-3">领域专家</p>
+          <p className="text-xs text-gray-400 font-bold mb-3">{label} · 知乎上的对应用户</p>
           <div className="space-y-3">
-            {agents.map((agent) => {
-              const color = agent.stance === 'pro' ? '#4ade80' : agent.stance === 'con' ? '#fb7185' : '#fbbf24'
-              return (
-                <div key={agent.agent_id} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-indigo-50">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ backgroundColor: color + '20' }}>
-                    {agent.stance === 'pro' ? '✅' : agent.stance === 'con' ? '❌' : '⚖️'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm font-bold text-gray-800">{agent.name}</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: color + '20', color }}>
-                        {STANCE_LABEL[agent.stance]}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{agent.persona}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{agent.summary}</p>
-                  </div>
+            {users.map((user, idx) => (
+              <a key={idx} href={user.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-white border border-indigo-50 hover:bg-indigo-50/30 hover:border-indigo-100 transition-all">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ backgroundColor: color + '20' }}>
+                  {user.avatar}
                 </div>
-              )
-            })}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-bold text-gray-800">{user.name}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: color + '20', color }}>
+                      {label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{user.title}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{user.followers} 关注者</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-gray-300 shrink-0 mt-2" />
+              </a>
+            ))}
           </div>
         </div>
       </div>
