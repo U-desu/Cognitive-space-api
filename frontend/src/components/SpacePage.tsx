@@ -6,8 +6,7 @@ import SpaceScene from './SpaceScene'
 import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
-import { ArrowLeft, Loader2, Share2, RotateCcw } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Loader2, Share2 } from 'lucide-react'
 
 export default function SpacePage() {
   const { spaceId } = useParams<{ spaceId: string }>()
@@ -69,9 +68,6 @@ export default function SpacePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <p className="text-rose-500 mb-4 font-bold">{state.error}</p>
-        <Link to="/" className="text-indigo-400 hover:underline font-bold">
-          ← 返回首页
-        </Link>
       </div>
     )
   }
@@ -82,34 +78,11 @@ export default function SpacePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
+      {/* Header — no back button here anymore */}
       <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
-        {isFocus ? (
-          <button
-            onClick={handleBackToGlobal}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-500 transition-colors"
-            title="返回全局视图"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        ) : (
-          <Link
-            to="/"
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-        )}
-
         <h2 className="text-base font-bold text-gray-700 truncate max-w-xl flex-1">
-          {isFocus && selectedAgent
-            ? (() => {
-                const agent = state.space?.agents.find((a) => a.agent_id === selectedAgent)
-                return agent ? `🔍 聚焦：${agent.name}` : state.space.query
-              })()
-            : state.space.query}
+          {state.space.query}
         </h2>
-
         <button
           onClick={() => setShowShare(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"
@@ -126,6 +99,7 @@ export default function SpacePage() {
           onAgentClick={handleAgentClick}
           selectedAgent={selectedAgent}
           viewMode={viewMode}
+          onBackToGlobal={handleBackToGlobal}
         />
 
         {selectedAgent && isFocus && (
