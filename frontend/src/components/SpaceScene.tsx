@@ -8,7 +8,7 @@ const H = 1000
 const CX = W / 2
 const CY = H / 2
 const RADIUS = 320
-const SIDEBAR_WIDTH = 384 // AgentPanel max-w-md
+const SIDEBAR_WIDTH = 384
 
 const STANCE_COLORS: Record<string, string> = {
   pro: '#4ade80',
@@ -45,8 +45,21 @@ export default function SpaceScene({
   const containerRef = useRef<HTMLDivElement>(null)
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
   const [hoveredCenter, setHoveredCenter] = useState(false)
-  const [transform, setTransform] = useState('none')
-  const [transformOrigin, setTransformOrigin] = useState('50% 50%')
+
+  // Pan & Zoom for global mode
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const panRef = useRef(pan)
+  panRef.current = pan
+
+  const dragRef = useRef({
+    isDown: false,
+    hasDragged: false,
+    startX: 0,
+    startY: 0,
+    startPanX: 0,
+    startPanY: 0,
+  })
 
   const space = state.space
   const agents = space?.agents ?? []
@@ -63,14 +76,67 @@ export default function SpaceScene({
     return map
   }, [agents])
 
-  // Compute CSS transform for focus mode
+  // Global drag & zoom event handlers
   useEffect(() => {
-    if (!containerRef.current || !isFocus || !selectedAgent) {
-      setTransform('none')
-      setTransformOrigin('50% 50%')
-      return
+    const handleWindowMove = (e: MouseEvent) => {
+      if (!dragRef.current.isDown || isFocus) return
+      const dx = e.clientX - dragRef.current.startX
+      const dy = e.clientY - dragRef.current.startY
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        dragRef.current.hasDragged = true
+      }
+      // Damping: 0.5x sensitivity so it doesn't feel too fast
+      setPan({
+        x: dragRef.current.startPanX + dx * 0.5,
+        y: dragRef.current.startPanY + dy * 0.5,
+      })
     }
 
+    const handleWindowUp = () => {
+      if (dragRef.current.isDown) {
+        setTimeout(() => {
+          dragRef.current.isDown = false
+        }, 50)
+      }
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      if (isFocus) return
+      e.preventDefault()
+      // Small step: 0.0008 multiplier so one wheel tick ≈ 0.08 zoom change
+      const delta = e.deltaY * -0.0008
+      setZoom((prev) => {
+        const next = prev + delta
+        return Math.min(2.5, Math.max(0.5, next))
+      })
+    }
+
+    window.addEventListener('mousemove', handleWindowMove)
+    window.addEventListener('mouseup', handleWindowUp)
+    const container = containerRef.current
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false })
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMove)
+      window.removeEventListener('mouseup', handleWindowUp)
+      if (container) {
+        container.removeEventListener('wheel', handleWheel)
+      }
+    }
+  }, [isFocus])
+
+  // Focus mode: compute transform to center selected agent
+  const [focusTransform, setFocusTransform] = useState('none')
+  const [focusOrigin, setFocusOrigin] = useState('50% 50%')
+
+  useEffect(() => {
+    if (!containerRef.current || !isFocus || !selectedAgent) {
+      setFocusTransform('none')
+      setFocusOrigin('50% 50%')
+      return
+    }
     const pos = globalPositions.get(selectedAgent)
     if (!pos) return
 
@@ -90,20 +156,50 @@ export default function SpaceScene({
     const visibleCenterX = (rect.width - SIDEBAR_WIDTH) / 2
     const visibleCenterY = rect.height / 2
 
-    // Translate to move character to visible center
     const dx = visibleCenterX - charScreenX
     const dy = visibleCenterY - charScreenY
 
-    setTransform(`translate(${dx}px, ${dy}px) scale(${scale})`)
-    setTransformOrigin(`${charScreenX}px ${charScreenY}px`)
+    setFocusTransform(`translate(${dx}px, ${dy}px) scale(${scale})`)
+    setFocusOrigin(`${charScreenX}px ${charScreenY}px`)
   }, [isFocus, selectedAgent, globalPositions])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isFocus) return
+    dragRef.current = {
+      isDown: true,
+      hasDragged: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPanX: panRef.current.x,
+      startPanY: panRef.current.y,
+    }
+  }
+
+  const handleAgentClick = (agentId: string) => {
+    if (dragRef.current.hasDragged) {
+      dragRef.current.hasDragged = false
+      return
+    }
+    // Reset pan/zoom before focus animation for smooth transition
+    setPan({ x: 0, y: 0 })
+    setZoom(1)
+    onAgentClick(agentId)
+  }
+
+  // Final transform
+  const finalTransform = isFocus
+    ? focusTransform
+    : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+  const finalOrigin = isFocus ? focusOrigin : '50% 50%'
 
   return (
     <div
       ref={containerRef}
       className="w-full h-full relative overflow-hidden bg-[#f0f4ff]"
+      onMouseDown={handleMouseDown}
+      style={{ userSelect: 'none' }}
     >
-      {/* Back button — inside canvas area, top-left, below metrics */}
+      {/* Back button */}
       {isFocus && (
         <button
           onClick={onBackToGlobal}
@@ -114,10 +210,20 @@ export default function SpaceScene({
         </button>
       )}
 
+      {/* Zoom/Pan hint */}
+      {!isFocus && (
+        <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
+          滚轮缩放 · 拖拽平移
+        </div>
+      )}
+
       {/* SVG container with animated transform */}
       <div
         className="w-full h-full transition-transform duration-500 ease-out"
-        style={{ transform, transformOrigin }}
+        style={{
+          transform: finalTransform,
+          transformOrigin: finalOrigin,
+        }}
       >
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -151,7 +257,7 @@ export default function SpaceScene({
                 style={{ transition: 'all 0.3s', cursor: 'pointer' }}
                 onMouseEnter={() => setHoveredAgent(agent.agent_id)}
                 onMouseLeave={() => setHoveredAgent(null)}
-                onClick={() => onAgentClick(agent.agent_id)}
+                onClick={() => handleAgentClick(agent.agent_id)}
               />
             )
           })}
@@ -201,7 +307,7 @@ export default function SpaceScene({
                 key={agent.agent_id}
                 onMouseEnter={() => setHoveredAgent(agent.agent_id)}
                 onMouseLeave={() => setHoveredAgent(null)}
-                onClick={() => onAgentClick(agent.agent_id)}
+                onClick={() => handleAgentClick(agent.agent_id)}
                 style={{ cursor: 'pointer' }}
               >
                 {/* Selection ring with pulse */}
