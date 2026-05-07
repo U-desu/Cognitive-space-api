@@ -46,22 +46,16 @@ export default function SpaceScene({
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
   const [hoveredCenter, setHoveredCenter] = useState(false)
 
-  // User pan & zoom (active in both global and focus modes)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const panRef = useRef(pan)
-  panRef.current = pan
+  // User-controlled pan & zoom (active in both modes)
+  const [userPan, setUserPan] = useState({ x: 0, y: 0 })
+  const [userZoom, setUserZoom] = useState(1)
+  const userPanRef = useRef(userPan)
+  userPanRef.current = userPan
 
-  // Focus base transform (computed when entering focus mode)
-  const [focusBase, setFocusBase] = useState({
-    dx: 0,
-    dy: 0,
-    scale: 1,
-    originX: 0,
-    originY: 0,
-  })
+  // Focus base pan (computed to center selected agent)
+  const [focusBasePan, setFocusBasePan] = useState({ x: 0, y: 0 })
 
-  // Drag state (distinguish click vs drag)
+  // Drag state to distinguish click vs drag
   const dragRef = useRef({
     isDown: false,
     hasDragged: false,
@@ -86,7 +80,49 @@ export default function SpaceScene({
     return map
   }, [agents])
 
-  // Drag & zoom event handlers (real-time, no damping)
+  // Compute focus base pan when entering focus or switching agent
+  useEffect(() => {
+    if (!isFocus || !selectedAgent || !containerRef.current) {
+      setFocusBasePan({ x: 0, y: 0 })
+      return
+    }
+
+    const pos = globalPositions.get(selectedAgent)
+    if (!pos) return
+
+    const rect = containerRef.current.getBoundingClientRect()
+    const svgScale = Math.min(rect.width, rect.height) / W
+    const svgOffsetX = (rect.width - W * svgScale) / 2
+    const svgOffsetY = (rect.height - H * svgScale) / 2
+
+    // Character position on screen (before any transform)
+    const charScreenX = svgOffsetX + pos[0] * svgScale
+    const charScreenY = svgOffsetY + pos[1] * svgScale
+
+    const screenCenterX = rect.width / 2
+    const screenCenterY = rect.height / 2
+    const visibleCenterX = (rect.width - SIDEBAR_WIDTH) / 2
+    const visibleCenterY = rect.height / 2
+
+    const baseScale = 1.7
+
+    // After scale(baseScale) around screen center, character ends up at:
+    const charAfterScaleX =
+      screenCenterX + (charScreenX - screenCenterX) * baseScale
+    const charAfterScaleY =
+      screenCenterY + (charScreenY - screenCenterY) * baseScale
+
+    // Need to pan to move character from there to visible center
+    const basePanX = visibleCenterX - charAfterScaleX
+    const basePanY = visibleCenterY - charAfterScaleY
+
+    setFocusBasePan({ x: basePanX, y: basePanY })
+    // Reset user pan/zoom for smooth transition
+    setUserPan({ x: 0, y: 0 })
+    setUserZoom(1)
+  }, [isFocus, selectedAgent, globalPositions])
+
+  // Drag & zoom handlers (real-time, no damping)
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragRef.current.isDown) return
@@ -95,7 +131,7 @@ export default function SpaceScene({
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
         dragRef.current.hasDragged = true
       }
-      setPan({
+      setUserPan({
         x: dragRef.current.startPanX + dx,
         y: dragRef.current.startPanY + dy,
       })
@@ -107,9 +143,8 @@ export default function SpaceScene({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      // Small step for smooth zooming
       const delta = e.deltaY * -0.001
-      setZoom((z) => {
+      setUserZoom((z) => {
         const next = z + delta
         return Math.min(3.0, Math.max(0.3, next))
       })
@@ -127,47 +162,14 @@ export default function SpaceScene({
     }
   }, [])
 
-  // Compute focus base transform when entering focus or switching agent
-  useEffect(() => {
-    if (!containerRef.current || !isFocus || !selectedAgent) {
-      setFocusBase({ dx: 0, dy: 0, scale: 1, originX: 0, originY: 0 })
-      return
-    }
-
-    const pos = globalPositions.get(selectedAgent)
-    if (!pos) return
-
-    const rect = containerRef.current.getBoundingClientRect()
-    const svgScale = Math.min(rect.width, rect.height) / W
-    const svgOffsetX = (rect.width - W * svgScale) / 2
-    const svgOffsetY = (rect.height - H * svgScale) / 2
-
-    const charScreenX = svgOffsetX + pos[0] * svgScale
-    const charScreenY = svgOffsetY + pos[1] * svgScale
-    const visibleCenterX = (rect.width - SIDEBAR_WIDTH) / 2
-    const visibleCenterY = rect.height / 2
-
-    setFocusBase({
-      dx: visibleCenterX - charScreenX,
-      dy: visibleCenterY - charScreenY,
-      scale: 1.7,
-      originX: charScreenX,
-      originY: charScreenY,
-    })
-
-    // Reset user pan/zoom when entering focus or switching agent
-    setPan({ x: 0, y: 0 })
-    setZoom(1)
-  }, [isFocus, selectedAgent, globalPositions])
-
   const handleMouseDown = (e: React.MouseEvent) => {
     dragRef.current = {
       isDown: true,
       hasDragged: false,
       startX: e.clientX,
       startY: e.clientY,
-      startPanX: panRef.current.x,
-      startPanY: panRef.current.y,
+      startPanX: userPanRef.current.x,
+      startPanY: userPanRef.current.y,
     }
   }
 
@@ -189,14 +191,12 @@ export default function SpaceScene({
     }
   }
 
-  // Final transform: focusBase + user pan/zoom
-  const finalTransform = isFocus
-    ? `translate(${focusBase.dx + pan.x}px, ${focusBase.dy + pan.y}px) scale(${focusBase.scale * zoom})`
-    : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+  // Final transform: fixed transformOrigin, only transform changes
+  const finalScale = isFocus ? 1.7 * userZoom : userZoom
+  const finalPanX = isFocus ? focusBasePan.x + userPan.x : userPan.x
+  const finalPanY = isFocus ? focusBasePan.y + userPan.y : userPan.y
 
-  const finalOrigin = isFocus
-    ? `${focusBase.originX}px ${focusBase.originY}px`
-    : '50% 50%'
+  const isDragging = dragRef.current.isDown
 
   return (
     <div
@@ -219,23 +219,23 @@ export default function SpaceScene({
         </button>
       )}
 
-      {/* Zoom/Pan hint */}
+      {/* Hints */}
       <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
         滚轮缩放 · 拖拽平移
       </div>
-
-      {/* Zoom level indicator */}
       <div className="absolute bottom-4 right-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
-        {Math.round(zoom * 100)}%
+        {Math.round(finalScale * 100)}%
       </div>
 
-      {/* SVG container with transform */}
+      {/* SVG with animated transform — transformOrigin is ALWAYS fixed at center */}
       <div
         className="w-full h-full"
         style={{
-          transform: finalTransform,
-          transformOrigin: finalOrigin,
-          transition: dragRef.current.isDown ? 'none' : 'transform 0.3s ease-out',
+          transform: `translate(${finalPanX}px, ${finalPanY}px) scale(${finalScale})`,
+          transformOrigin: '50% 50%',
+          transition: isDragging
+            ? 'none'
+            : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}
       >
         <svg
