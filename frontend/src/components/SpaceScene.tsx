@@ -46,12 +46,22 @@ export default function SpaceScene({
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
   const [hoveredCenter, setHoveredCenter] = useState(false)
 
-  // Pan & Zoom for global mode
+  // User pan & zoom (active in both global and focus modes)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const panRef = useRef(pan)
   panRef.current = pan
 
+  // Focus base transform (computed when entering focus mode)
+  const [focusBase, setFocusBase] = useState({
+    dx: 0,
+    dy: 0,
+    scale: 1,
+    originX: 0,
+    originY: 0,
+  })
+
+  // Drag state (distinguish click vs drag)
   const dragRef = useRef({
     isDown: false,
     hasDragged: false,
@@ -76,95 +86,81 @@ export default function SpaceScene({
     return map
   }, [agents])
 
-  // Global drag & zoom event handlers
+  // Drag & zoom event handlers (real-time, no damping)
   useEffect(() => {
-    const handleWindowMove = (e: MouseEvent) => {
-      if (!dragRef.current.isDown || isFocus) return
+    const onMove = (e: MouseEvent) => {
+      if (!dragRef.current.isDown) return
       const dx = e.clientX - dragRef.current.startX
       const dy = e.clientY - dragRef.current.startY
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
         dragRef.current.hasDragged = true
       }
-      // Damping: 0.5x sensitivity so it doesn't feel too fast
       setPan({
-        x: dragRef.current.startPanX + dx * 0.5,
-        y: dragRef.current.startPanY + dy * 0.5,
+        x: dragRef.current.startPanX + dx,
+        y: dragRef.current.startPanY + dy,
       })
     }
 
-    const handleWindowUp = () => {
-      if (dragRef.current.isDown) {
-        setTimeout(() => {
-          dragRef.current.isDown = false
-        }, 50)
-      }
+    const onUp = () => {
+      dragRef.current.isDown = false
     }
 
-    const handleWheel = (e: WheelEvent) => {
-      if (isFocus) return
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      // Small step: 0.0008 multiplier so one wheel tick ≈ 0.08 zoom change
-      const delta = e.deltaY * -0.0008
-      setZoom((prev) => {
-        const next = prev + delta
-        return Math.min(2.5, Math.max(0.5, next))
+      // Small step for smooth zooming
+      const delta = e.deltaY * -0.001
+      setZoom((z) => {
+        const next = z + delta
+        return Math.min(3.0, Math.max(0.3, next))
       })
     }
 
-    window.addEventListener('mousemove', handleWindowMove)
-    window.addEventListener('mouseup', handleWindowUp)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
     const container = containerRef.current
-    if (container) {
-      container.addEventListener('wheel', handleWheel, { passive: false })
-    }
+    container?.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
-      window.removeEventListener('mousemove', handleWindowMove)
-      window.removeEventListener('mouseup', handleWindowUp)
-      if (container) {
-        container.removeEventListener('wheel', handleWheel)
-      }
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      container?.removeEventListener('wheel', onWheel)
     }
-  }, [isFocus])
+  }, [])
 
-  // Focus mode: compute transform to center selected agent
-  const [focusTransform, setFocusTransform] = useState('none')
-  const [focusOrigin, setFocusOrigin] = useState('50% 50%')
-
+  // Compute focus base transform when entering focus or switching agent
   useEffect(() => {
     if (!containerRef.current || !isFocus || !selectedAgent) {
-      setFocusTransform('none')
-      setFocusOrigin('50% 50%')
+      setFocusBase({ dx: 0, dy: 0, scale: 1, originX: 0, originY: 0 })
       return
     }
+
     const pos = globalPositions.get(selectedAgent)
     if (!pos) return
 
     const rect = containerRef.current.getBoundingClientRect()
-    const scale = 1.7
-
-    // SVG is rendered with preserveAspectRatio="xMidYMid meet"
     const svgScale = Math.min(rect.width, rect.height) / W
     const svgOffsetX = (rect.width - W * svgScale) / 2
     const svgOffsetY = (rect.height - H * svgScale) / 2
 
-    // Character position on screen
     const charScreenX = svgOffsetX + pos[0] * svgScale
     const charScreenY = svgOffsetY + pos[1] * svgScale
-
-    // Visible center considering sidebar
     const visibleCenterX = (rect.width - SIDEBAR_WIDTH) / 2
     const visibleCenterY = rect.height / 2
 
-    const dx = visibleCenterX - charScreenX
-    const dy = visibleCenterY - charScreenY
+    setFocusBase({
+      dx: visibleCenterX - charScreenX,
+      dy: visibleCenterY - charScreenY,
+      scale: 1.7,
+      originX: charScreenX,
+      originY: charScreenY,
+    })
 
-    setFocusTransform(`translate(${dx}px, ${dy}px) scale(${scale})`)
-    setFocusOrigin(`${charScreenX}px ${charScreenY}px`)
+    // Reset user pan/zoom when entering focus or switching agent
+    setPan({ x: 0, y: 0 })
+    setZoom(1)
   }, [isFocus, selectedAgent, globalPositions])
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isFocus) return
     dragRef.current = {
       isDown: true,
       hasDragged: false,
@@ -180,17 +176,27 @@ export default function SpaceScene({
       dragRef.current.hasDragged = false
       return
     }
-    // Reset pan/zoom before focus animation for smooth transition
-    setPan({ x: 0, y: 0 })
-    setZoom(1)
     onAgentClick(agentId)
   }
 
-  // Final transform
+  const handleCenterClick = () => {
+    if (dragRef.current.hasDragged) {
+      dragRef.current.hasDragged = false
+      return
+    }
+    if (isFocus) {
+      onBackToGlobal()
+    }
+  }
+
+  // Final transform: focusBase + user pan/zoom
   const finalTransform = isFocus
-    ? focusTransform
+    ? `translate(${focusBase.dx + pan.x}px, ${focusBase.dy + pan.y}px) scale(${focusBase.scale * zoom})`
     : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
-  const finalOrigin = isFocus ? focusOrigin : '50% 50%'
+
+  const finalOrigin = isFocus
+    ? `${focusBase.originX}px ${focusBase.originY}px`
+    : '50% 50%'
 
   return (
     <div
@@ -199,10 +205,13 @@ export default function SpaceScene({
       onMouseDown={handleMouseDown}
       style={{ userSelect: 'none' }}
     >
-      {/* Back button */}
+      {/* Back button (focus mode only) */}
       {isFocus && (
         <button
-          onClick={onBackToGlobal}
+          onClick={(e) => {
+            e.stopPropagation()
+            onBackToGlobal()
+          }}
           className="absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-lg border border-indigo-100 text-indigo-500 hover:bg-indigo-50 hover:scale-105 transition-all"
           title="返回全局视图"
         >
@@ -211,18 +220,22 @@ export default function SpaceScene({
       )}
 
       {/* Zoom/Pan hint */}
-      {!isFocus && (
-        <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
-          滚轮缩放 · 拖拽平移
-        </div>
-      )}
+      <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
+        滚轮缩放 · 拖拽平移
+      </div>
 
-      {/* SVG container with animated transform */}
+      {/* Zoom level indicator */}
+      <div className="absolute bottom-4 right-4 z-20 px-3 py-1.5 rounded-full bg-white/80 border border-indigo-100 text-[10px] text-gray-400 font-bold shadow-sm pointer-events-none">
+        {Math.round(zoom * 100)}%
+      </div>
+
+      {/* SVG container with transform */}
       <div
-        className="w-full h-full transition-transform duration-500 ease-out"
+        className="w-full h-full"
         style={{
           transform: finalTransform,
           transformOrigin: finalOrigin,
+          transition: dragRef.current.isDown ? 'none' : 'transform 0.3s ease-out',
         }}
       >
         <svg
@@ -266,6 +279,8 @@ export default function SpaceScene({
           <g
             onMouseEnter={() => setHoveredCenter(true)}
             onMouseLeave={() => setHoveredCenter(false)}
+            onClick={handleCenterClick}
+            style={{ cursor: isFocus ? 'pointer' : 'default' }}
           >
             <circle
               cx={CX}
@@ -310,7 +325,6 @@ export default function SpaceScene({
                 onClick={() => handleAgentClick(agent.agent_id)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Selection ring with pulse */}
                 {isSel && (
                   <circle
                     cx={pos[0]}
@@ -348,7 +362,6 @@ export default function SpaceScene({
                   {agent.stance === 'pro' ? '✅' : agent.stance === 'con' ? '❌' : '⚖️'}
                 </text>
 
-                {/* Name label */}
                 <foreignObject
                   x={pos[0] - 60}
                   y={pos[1] + r + 10}
@@ -376,7 +389,7 @@ export default function SpaceScene({
         </svg>
       </div>
 
-      {/* HTML Tooltip overlays */}
+      {/* Tooltips */}
       {hoveredAgent && (
         <AgentTooltip
           agent={agents.find((a) => a.agent_id === hoveredAgent)!}
