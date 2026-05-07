@@ -17,6 +17,7 @@ const STANCE_COLORS: Record<string, string> = {
 }
 
 const CENTER_COLOR = '#818cf8'
+const USER_AGENT_ID = '__user__'
 
 function polarToCartesian(
   cx: number,
@@ -54,7 +55,6 @@ export default function SpaceScene({
 
   // Focus base pan (computed to center selected agent)
   const [focusBasePan, setFocusBasePan] = useState({ x: 0, y: 0 })
-  const wasFocusRef = useRef(false)
 
   // Drag state to distinguish click vs drag
   const dragRef = useRef({
@@ -83,13 +83,21 @@ export default function SpaceScene({
 
   // Compute focus base pan when entering focus or switching agent
   useEffect(() => {
-    if (!isFocus || !selectedAgent || !containerRef.current) {
+    if (!selectedAgent || !containerRef.current) {
       setFocusBasePan({ x: 0, y: 0 })
-      wasFocusRef.current = isFocus
+      if (!isFocus) {
+        setUserPan({ x: 0, y: 0 })
+        setUserZoom(1)
+      }
       return
     }
 
-    const pos = globalPositions.get(selectedAgent)
+    let pos: [number, number] | undefined
+    if (selectedAgent === USER_AGENT_ID) {
+      pos = [CX, CY]
+    } else {
+      pos = globalPositions.get(selectedAgent)
+    }
     if (!pos) return
 
     const rect = containerRef.current.getBoundingClientRect()
@@ -103,10 +111,10 @@ export default function SpaceScene({
 
     const screenCenterX = rect.width / 2
     const screenCenterY = rect.height / 2
-    const visibleCenterX = (rect.width - SIDEBAR_WIDTH) / 2
+    const visibleCenterX = isFocus ? (rect.width - SIDEBAR_WIDTH) / 2 : screenCenterX
     const visibleCenterY = rect.height / 2
 
-    const baseScale = 1.7
+    const baseScale = isFocus ? 1.7 : 1.0
 
     // After scale(baseScale) around screen center, character ends up at:
     const charAfterScaleX =
@@ -119,12 +127,6 @@ export default function SpaceScene({
     const basePanY = visibleCenterY - charAfterScaleY
 
     setFocusBasePan({ x: basePanX, y: basePanY })
-    // Only reset user pan/zoom when first entering focus mode, not when switching agent inside focus
-    if (!wasFocusRef.current) {
-      setUserPan({ x: 0, y: 0 })
-      setUserZoom(1)
-    }
-    wasFocusRef.current = isFocus
   }, [isFocus, selectedAgent, globalPositions])
 
   // Drag & zoom handlers (real-time, no damping)
@@ -183,6 +185,8 @@ export default function SpaceScene({
       dragRef.current.hasDragged = false
       return
     }
+    setUserPan({ x: 0, y: 0 })
+    setUserZoom(1)
     onAgentClick(agentId)
   }
 
@@ -191,15 +195,19 @@ export default function SpaceScene({
       dragRef.current.hasDragged = false
       return
     }
+    setUserPan({ x: 0, y: 0 })
+    setUserZoom(1)
     if (isFocus) {
+      onAgentClick(USER_AGENT_ID)
+    } else {
       onBackToGlobal()
     }
   }
 
   // Final transform: fixed transformOrigin, only transform changes
   const finalScale = isFocus ? 1.7 * userZoom : userZoom
-  const finalPanX = isFocus ? focusBasePan.x + userPan.x : userPan.x
-  const finalPanY = isFocus ? focusBasePan.y + userPan.y : userPan.y
+  const finalPanX = focusBasePan.x + userPan.x
+  const finalPanY = focusBasePan.y + userPan.y
 
   const isDragging = dragRef.current.isDown
 

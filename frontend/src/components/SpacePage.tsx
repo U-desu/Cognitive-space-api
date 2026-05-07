@@ -13,6 +13,7 @@ export default function SpacePage() {
   const { state, dispatch } = useSpaceState()
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'global' | 'focus'>('global')
+  const [agentClickCount, setAgentClickCount] = useState(0)
   const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
@@ -49,6 +50,9 @@ export default function SpacePage() {
   const handleAgentClick = (agentId: string) => {
     setSelectedAgent(agentId)
     setViewMode('focus')
+    if (viewMode === 'focus') {
+      setAgentClickCount((c) => c + 1)
+    }
   }
 
   const handleBackToGlobal = () => {
@@ -104,6 +108,7 @@ export default function SpacePage() {
 
         {selectedAgent && isFocus && (
           <AgentPanel
+            key={agentClickCount}
             agentId={selectedAgent}
             onClose={handleBackToGlobal}
           />

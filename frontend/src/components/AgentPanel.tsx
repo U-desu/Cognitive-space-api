@@ -49,21 +49,69 @@ const MOCK_ZHIHU_QUESTIONS = [
   { title: '副业验证PMF再全职创业靠谱吗？', url: 'https://www.zhihu.com/question/mock004', views: '5.2万' },
 ]
 
+const DOMAIN_LABEL: Record<string, string> = {
+  startup: '创业', enterprise: '企业', investment: '投资', indie: '独立开发',
+  tech: '技术', finance: '金融', research: '研究', product: '产品',
+  engineering: '工程', data: '数据科学', media: '媒体', opensource: '开源',
+  academia: '学术', consulting: '咨询', policy: '政策', crypto: '区块链',
+  security: '安全', cloud: '云架构', devops: 'DevOps', design: '设计',
+  growth: '增长', legal: '法务', hr: '人力资源', marketing: '市场',
+  operations: '运营', supply: '供应链', edtech: '教育科技', healthtech: '健康科技',
+  fintech: '金融科技', env: '环境', sociology: '社会学', psychology: '心理学',
+  philosophy: '哲学', economics: '经济学', history: '历史', futurology: '未来学',
+  scifi: '科幻', journalism: '新闻', gov: '政府',
+}
+
 const MOCK_ZHIHU_USERS: Record<string, Array<{ name: string; avatar: string; title: string; followers: string; url: string }>> = {
-  pro: [
+  startup: [
     { name: '张小龙的产品观', avatar: '🔥', title: '连续创业者，前腾讯产品总监', followers: '23.5万', url: 'https://www.zhihu.com/people/zhangxiaolong' },
     { name: '李想', avatar: '🚀', title: '理想汽车创始人', followers: '18.2万', url: 'https://www.zhihu.com/people/lixiang' },
     { name: '粥左罗', avatar: '💡', title: '新媒体专家，创业博主', followers: '31.6万', url: 'https://www.zhihu.com/people/zhouzuoluo' },
   ],
-  con: [
-    { name: '周鸿祎', avatar: '🛡️', title: '360集团创始人', followers: '45.1万', url: 'https://www.zhihu.com/people/zhouhongyi' },
-    { name: '俞敏洪', avatar: '📚', title: '新东方创始人', followers: '32.8万', url: 'https://www.zhihu.com/people/yuminhong' },
-    { name: '半佛仙人', avatar: '🐢', title: '风控博主，反鸡汤达人', followers: '128万', url: 'https://www.zhihu.com/people/banfo' },
+  enterprise: [
+    { name: '脱不花', avatar: '🏢', title: '得到APP联合创始人，前湖畔大学产品负责人', followers: '42.3万', url: 'https://www.zhihu.com/people/tuobuhua' },
+    { name: '梁宁', avatar: '📈', title: '产品战略专家，前联想、腾讯产品高管', followers: '38.7万', url: 'https://www.zhihu.com/people/liangning' },
+    { name: '俞军', avatar: '🎯', title: '前百度产品副总裁，产品方法论奠基人', followers: '29.1万', url: 'https://www.zhihu.com/people/yujun' },
   ],
-  neutral: [
-    { name: '罗振宇', avatar: '🧠', title: '得到App创始人', followers: '56.3万', url: 'https://www.zhihu.com/people/luozhenyu' },
-    { name: '吴晓波', avatar: '📊', title: '财经作家，巴九灵创始人', followers: '41.7万', url: 'https://www.zhihu.com/people/wuxiaobo' },
-    { name: '刘润', avatar: '🔢', title: '润米咨询创始人', followers: '67.4万', url: 'https://www.zhihu.com/people/liurun' },
+  investment: [
+    { name: '朱啸虎', avatar: '💰', title: '金沙江创投合伙人，滴滴、饿了么早期投资人', followers: '35.6万', url: 'https://www.zhihu.com/people/zhuxiaohu' },
+    { name: '张磊', avatar: '📊', title: '高瓴资本创始人，价值投资者', followers: '28.4万', url: 'https://www.zhihu.com/people/zhanglei' },
+    { name: '沈南鹏', avatar: '🦈', title: '红杉中国创始人，投资界教父', followers: '31.2万', url: 'https://www.zhihu.com/people/shennanpeng' },
+  ],
+  data: [
+    { name: '陈丹琦', avatar: '📉', title: '斯坦福博士，NLP领域青年科学家', followers: '15.8万', url: 'https://www.zhihu.com/people/chendanqi' },
+    { name: '李沐', avatar: '🤖', title: 'AWS资深科学家，MXNet作者', followers: '22.3万', url: 'https://www.zhihu.com/people/limu' },
+    { name: '王喆', avatar: '🔢', title: '推荐系统专家，《深度学习推荐系统》作者', followers: '18.7万', url: 'https://www.zhihu.com/people/wangzhe' },
+  ],
+  tech: [
+    { name: '阮一峰', avatar: '💻', title: '技术博主，科技爱好者周刊主编', followers: '68.5万', url: 'https://www.zhihu.com/people/ruanyifeng' },
+    { name: '尤雨溪', avatar: '⚡', title: 'Vue.js 作者，前端框架设计大师', followers: '45.2万', url: 'https://www.zhihu.com/people/youyuxi' },
+    { name: '轮子哥', avatar: '🌀', title: '微软资深工程师，知乎技术大V', followers: '52.1万', url: 'https://www.zhihu.com/people/lunzi' },
+  ],
+  product: [
+    { name: '苏杰', avatar: '📱', title: '《人人都是产品经理》作者', followers: '26.4万', url: 'https://www.zhihu.com/people/sujie' },
+    { name: '刘飞', avatar: '✨', title: '前滴滴产品总监，产品思维布道者', followers: '19.8万', url: 'https://www.zhihu.com/people/liufei' },
+    { name: '唐韧', avatar: '🎨', title: '产品总监，产品设计方法论专家', followers: '14.5万', url: 'https://www.zhihu.com/people/tangren' },
+  ],
+  engineering: [
+    { name: '陈皓', avatar: '⚙️', title: '资深技术专家，左耳朵耗子', followers: '55.3万', url: 'https://www.zhihu.com/people/chenhao' },
+    { name: '冯大辉', avatar: '🔧', title: '前丁香园CTO，技术创业观察者', followers: '33.7万', url: 'https://www.zhihu.com/people/fengdahui' },
+    { name: '阿里多隆', avatar: '🏗️', title: '阿里创始工程师，淘宝早期架构师', followers: '21.6万', url: 'https://www.zhihu.com/people/duolong' },
+  ],
+  finance: [
+    { name: '肖飒', avatar: '⚖️', title: '法学博士，金融科技法律专家', followers: '12.3万', url: 'https://www.zhihu.com/people/xiaosa' },
+    { name: '香帅', avatar: '💎', title: '北大金融系教授，财富报告作者', followers: '27.9万', url: 'https://www.zhihu.com/people/xiangshuai' },
+    { name: '管清友', avatar: '📉', title: '经济学家，如是金融研究院院长', followers: '24.1万', url: 'https://www.zhihu.com/people/guanqingyou' },
+  ],
+  academia: [
+    { name: '李飞飞', avatar: '🧬', title: '斯坦福教授，AI领军人物', followers: '32.4万', url: 'https://www.zhihu.com/people/lifeifei' },
+    { name: '吴恩达', avatar: '🎓', title: 'DeepLearning.AI创始人，斯坦福教授', followers: '41.8万', url: 'https://www.zhihu.com/people/wuenda' },
+    { name: '周志华', avatar: '🔬', title: '南京大学计算机系主任，西瓜书作者', followers: '19.5万', url: 'https://www.zhihu.com/people/zhoushihua' },
+  ],
+  design: [
+    { name: '马力', avatar: '🖌️', title: '知群CEO，产品设计教育专家', followers: '16.7万', url: 'https://www.zhihu.com/people/mali' },
+    { name: '东海', avatar: '🎭', title: '前阿里设计总监，设计系统专家', followers: '11.2万', url: 'https://www.zhihu.com/people/donghai' },
+    { name: 'Rigo', avatar: '🌈', title: '前百度设计总监，用户体验专家', followers: '9.8万', url: 'https://www.zhihu.com/people/rigo' },
   ],
 }
 
@@ -83,12 +131,23 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   const edges = state.edges
   const agents = space?.agents ?? []
 
+  const USER_AGENT_ID = '__user__'
+
   const agent = useMemo(() => {
+    if (agentId === USER_AGENT_ID) {
+      return {
+        agent_id: USER_AGENT_ID,
+        name: '你',
+        stance: 'neutral',
+        persona: '正在做重要决策的你。你的问题驱动了整个认知空间的生成，所有角色都在围绕你的困惑提供不同视角的思考。',
+        summary: space?.query ?? '你的决策问题',
+      } as Agent
+    }
     return agents.find((a) => a.agent_id === agentId) ?? null
-  }, [agents, agentId])
+  }, [agents, agentId, space])
 
   const relatedEdges = useMemo(() => {
-    if (!agentId) return []
+    if (!agentId || agentId === USER_AGENT_ID) return []
     const list = edges.filter((e) => e.source === agentId || e.target === agentId)
     list.sort((a, b) => b.conflict_score - a.conflict_score)
     return list
@@ -168,7 +227,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         </div>
         {/* Cluster */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'cluster' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <ClusterContent agentStance={agent.stance} onBack={() => setPage('debate')} />
+          <ClusterContent agentDomain={agent.domain} agentStance={agent.stance} onBack={() => setPage('debate')} />
         </div>
       </div>
     </div>
@@ -231,7 +290,11 @@ function ProfileContent({
             <span className="text-xs text-gray-400 ml-auto">与该角色分歧最大的对手</span>
           </div>
 
-          {relatedEdges.length === 0 && <p className="text-sm text-gray-400 text-center py-4">暂无冲突数据</p>}
+          {relatedEdges.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">
+              {agent.agent_id === '__user__' ? '所有角色都在为你的决策提供不同视角' : '暂无冲突数据'}
+            </p>
+          )}
 
           <div className="space-y-3">
             {relatedEdges.map((edge) => {
@@ -425,9 +488,10 @@ function DebateContent({
 }
 
 /* ─────────────── Cluster Page ─────────────── */
-function ClusterContent({ agentStance, onBack }: { agentStance: string; onBack: () => void }) {
-  const users = MOCK_ZHIHU_USERS[agentStance] ?? MOCK_ZHIHU_USERS.neutral
-  const label = STANCE_LABEL[agentStance] ?? '中立派'
+function ClusterContent({ agentDomain, agentStance, onBack }: { agentDomain?: string; agentStance: string; onBack: () => void }) {
+  const domainKey = agentDomain && MOCK_ZHIHU_USERS[agentDomain] ? agentDomain : 'startup'
+  const users = MOCK_ZHIHU_USERS[domainKey]
+  const domainLabel = DOMAIN_LABEL[agentDomain ?? ''] ?? (agentDomain || '未知领域')
   const color = agentStance === 'pro' ? '#4ade80' : agentStance === 'con' ? '#fb7185' : '#fbbf24'
 
   return (
@@ -459,7 +523,7 @@ function ClusterContent({ agentStance, onBack }: { agentStance: string; onBack: 
         </div>
 
         <div>
-          <p className="text-xs text-gray-400 font-bold mb-3">{label} · 知乎上的对应用户</p>
+          <p className="text-xs text-gray-400 font-bold mb-3">{domainLabel} · 知乎上的对应用户</p>
           <div className="space-y-3">
             {users.map((user, idx) => (
               <a key={idx} href={user.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-white border border-indigo-50 hover:bg-indigo-50/30 hover:border-indigo-100 transition-all">
@@ -470,7 +534,7 @@ function ClusterContent({ agentStance, onBack }: { agentStance: string; onBack: 
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm font-bold text-gray-800">{user.name}</span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: color + '20', color }}>
-                      {label}
+                      {domainLabel}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">{user.title}</p>
