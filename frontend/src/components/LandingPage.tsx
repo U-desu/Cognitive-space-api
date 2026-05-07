@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Compass, ArrowRight, Sparkles, Briefcase, Code, Heart } from 'lucide-react'
+import { Compass, ArrowRight, Briefcase, Code, Heart } from 'lucide-react'
 import { api } from '../api'
 import { useSpaceState } from '../store/SpaceContext'
+import LoadingBunny from './LoadingBunny'
 
 const HOT_QUESTIONS = [
   {
@@ -36,14 +37,23 @@ export default function LandingPage() {
     if (!query.trim()) return
     setLoading(true)
     try {
+      const startTime = Date.now()
       const space = await api.createSpace({ query, user_context: {} })
+      const elapsed = Date.now() - startTime
+      const minDelay = 2200
+      if (elapsed < minDelay) {
+        await new Promise((r) => setTimeout(r, minDelay - elapsed))
+      }
       dispatch({ type: 'SET_SPACE', payload: space })
       navigate(`/space/${space.space_id}`)
     } catch (err) {
       alert(err instanceof Error ? err.message : '创建失败')
-    } finally {
       setLoading(false)
     }
+  }
+
+  if (loading) {
+    return <LoadingBunny query={query} />
   }
 
   return (
@@ -82,17 +92,10 @@ export default function LandingPage() {
           />
           <button
             type="submit"
-            disabled={loading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 px-6 py-2.5 bg-indigo-400 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md transition-all disabled:opacity-50"
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 px-6 py-2.5 bg-indigo-400 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md transition-all"
           >
-            {loading ? (
-              <Sparkles className="w-4 h-4 animate-spin" />
-            ) : (
-              <ArrowRight className="w-4 h-4" />
-            )}
-            <span className="font-bold">
-              {loading ? '召唤中...' : '开始探索'}
-            </span>
+            <ArrowRight className="w-4 h-4" />
+            <span className="font-bold">开始探索</span>
           </button>
         </div>
       </form>

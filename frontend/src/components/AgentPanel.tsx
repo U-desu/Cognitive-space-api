@@ -42,12 +42,30 @@ const STANCE_TEXT: Record<string, string> = {
   neutral: '#92400e',
 }
 
-const MOCK_ZHIHU_QUESTIONS = [
-  { title: '大厂程序员该不该辞职创业？', url: 'https://www.zhihu.com/question/mock001', views: '12.4万' },
-  { title: 'AI创业窗口期还有多久？', url: 'https://www.zhihu.com/question/mock002', views: '8.7万' },
-  { title: '30岁转管理还是继续技术深耕？', url: 'https://www.zhihu.com/question/mock003', views: '21.3万' },
-  { title: '副业验证PMF再全职创业靠谱吗？', url: 'https://www.zhihu.com/question/mock004', views: '5.2万' },
-]
+function _matchQueryPreset(query: string): string {
+  const q = query.trim()
+  if (q.includes('程序') || q.includes('取代') || q.includes('失业') || q.includes('替代')) return '程序员取代'
+  if (q.includes('管理') || q.includes('转管理') || q.includes('深耕技术') || q.includes('技术还是管理')) return '技术管理'
+  return '大厂创业'
+}
+
+const PRESET_ZHIHU_QUESTIONS: Record<string, Array<{ title: string; url: string; views: string }>> = {
+  '大厂创业': [
+    { title: '大厂程序员该不该辞职创业？', url: 'https://www.zhihu.com/question/mock001', views: '12.4万' },
+    { title: 'AI创业窗口期还有多久？', url: 'https://www.zhihu.com/question/mock002', views: '8.7万' },
+    { title: '副业验证PMF再全职创业靠谱吗？', url: 'https://www.zhihu.com/question/mock003', views: '5.2万' },
+  ],
+  '程序员取代': [
+    { title: 'AI会取代程序员吗？', url: 'https://www.zhihu.com/question/mock101', views: '28.6万' },
+    { title: '程序员应该如何应对AI冲击？', url: 'https://www.zhihu.com/question/mock102', views: '15.3万' },
+    { title: 'AI编程助手会让程序员失业吗？', url: 'https://www.zhihu.com/question/mock103', views: '9.8万' },
+  ],
+  '技术管理': [
+    { title: '30岁程序员转管理还是继续技术？', url: 'https://www.zhihu.com/question/mock201', views: '21.3万' },
+    { title: '技术深耕和管理路线哪个更有前途？', url: 'https://www.zhihu.com/question/mock202', views: '18.5万' },
+    { title: '35岁程序员如何规划职业发展？', url: 'https://www.zhihu.com/question/mock203', views: '14.2万' },
+  ],
+}
 
 const DOMAIN_LABEL: Record<string, string> = {
   startup: '创业', enterprise: '企业', investment: '投资', indie: '独立开发',
@@ -126,6 +144,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   const [debate, setDebate] = useState<Debate | null>(null)
   const [debateLoading, setDebateLoading] = useState(false)
   const [selectedEdgeForDebate, setSelectedEdgeForDebate] = useState<Edge | null>(null)
+  const [clusterAgentId, setClusterAgentId] = useState<string | null>(null)
 
   const space = state.space
   const edges = state.edges
@@ -158,6 +177,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     setPage('profile')
     setDebate(null)
     setDebateLoading(false)
+    setClusterAgentId(null)
   }, [agentId])
 
   function getOpponent(edge: Edge): Agent | null {
@@ -178,6 +198,36 @@ export default function AgentPanel({ agentId, onClose }: Props) {
       })
       setDebate(d)
     } catch {
+      const preset = _matchQueryPreset(space.query)
+      let contentA = '我方认为当前是最佳时机，窗口期有限，应该果断行动。'
+      let contentB = '但风险过高，盲目入场失败率极高，应谨慎行事。'
+      let contentA2 = '我们可以先用副业验证PMF，降低试错成本，而不是直接all in。'
+      let contentB2 = '副业和全职创业的心态完全不同，无法真实验证市场需求。'
+      let conflict = '风险判断的时间尺度不同'
+      let suggestion = '先用副业验证PMF，降低试错成本'
+      let agreements = ['趋势是不可逆的', '需要准备而非冲动']
+      let divergences = ['最佳入场时机', '可接受的风险水平']
+
+      if (preset === '程序员取代') {
+        contentA = 'AI是程序员的超级生产力工具，Copilot已让编码效率提升55%，岗位不会减少只会升级。'
+        contentB = '当AI能自动生成80%的业务代码时，企业需要的人手会指数级下降，初级程序员已面临裁撤。'
+        contentA2 = '历史证明蒸汽机没有消灭工人，Excel没有消灭会计，程序员的核心竞争力是系统思维。'
+        contentB2 = '但AI替代的是认知劳动，当AI能debug、写测试、做code review时，系统思维也保不了你多久。'
+        conflict = '工具增强 vs 岗位替代：AI提升单程序员产出，但是否压缩整体岗位需求？'
+        suggestion = '建议向"AI+领域专家"转型，深耕垂直行业，掌握AI工具链'
+        agreements = ['AI将深刻改变编程工作流', '高阶思维能力越来越重要', '持续学习是生存底线']
+        divergences = ['岗位总量变化', '初级程序员生存空间', '转型窗口期长度']
+      } else if (preset === '技术管理') {
+        contentA = '管理路线是唯一的上升通道，30岁不转管理，35岁就会被P8+管理者领导，天花板触手可及。'
+        contentB = '恰恰因为大家都在转管理，技术深耕才是差异化壁垒。全球顶尖架构师年薪500万+，不受年龄限制。'
+        contentA2 = '管理能力是复利资产，技术能力是折旧资产。管理经验的迁移性远高于特定技术栈。'
+        contentB2 = '管理的迁移性是幻觉，你在A公司的团队方法论在B公司可能完全不适用。系统架构思维才是跨时代能力。'
+        conflict = '深度专精 vs 广度管理：技术路线的不可替代性 vs 管理路线的天花板高度'
+        suggestion = '建议用"T型策略"：30-35岁保持技术深度，同时承担小型项目管理，35岁后根据人格特质做最终选择'
+        agreements = ['30岁是职业分水岭', '需要主动规划而非被动等待', '大厂环境对纯技术路线不友好']
+        divergences = ['天花板定义', '年龄友好度', '个人特质匹配度']
+      }
+
       const mockDebate: Debate = {
         debate_id: 'mock_debate',
         edge_id: edge.edge_id,
@@ -186,23 +236,23 @@ export default function AgentPanel({ agentId, onClose }: Props) {
           {
             round: 1,
             turns: [
-              { agent: edge.source, type: 'argument', content: '我方认为当前是最佳时机，窗口期有限，应该果断行动。', evidence: [] },
-              { agent: edge.target, type: 'rebuttal', content: '但风险过高，盲目入场失败率极高，应谨慎行事。', evidence: [] },
+              { agent: edge.source, type: 'argument', content: contentA, evidence: [] },
+              { agent: edge.target, type: 'rebuttal', content: contentB, evidence: [] },
             ],
           },
           {
             round: 2,
             turns: [
-              { agent: edge.source, type: 'argument', content: '我们可以先用副业验证PMF，降低试错成本，而不是直接all in。', evidence: [] },
-              { agent: edge.target, type: 'rebuttal', content: '副业和全职创业的心态完全不同，无法真实验证市场需求。', evidence: [] },
+              { agent: edge.source, type: 'argument', content: contentA2, evidence: [] },
+              { agent: edge.target, type: 'rebuttal', content: contentB2, evidence: [] },
             ],
           },
         ],
         synthesis: {
-          core_conflict: '风险判断的时间尺度不同',
-          resolution_suggestion: '先用副业验证PMF，降低试错成本',
-          agreement_points: ['趋势是不可逆的', '需要准备而非冲动'],
-          divergence_points: ['最佳入场时机', '可接受的风险水平'],
+          core_conflict: conflict,
+          resolution_suggestion: suggestion,
+          agreement_points: agreements,
+          divergence_points: divergences,
         },
         visualization: {},
       }
@@ -223,11 +273,11 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         </div>
         {/* Debate */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'debate' ? 'translate-x-0' : page === 'profile' ? 'translate-x-full' : '-translate-x-full'}`}>
-          <DebateContent debate={debate} loading={debateLoading} agents={agents} selectedEdge={selectedEdgeForDebate} onBack={() => setPage('profile')} onCluster={() => setPage('cluster')} />
+          <DebateContent debate={debate} loading={debateLoading} agents={agents} selectedEdge={selectedEdgeForDebate} onBack={() => setPage('profile')} onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }} />
         </div>
         {/* Cluster */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'cluster' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <ClusterContent agentDomain={agent.domain} agentStance={agent.stance} onBack={() => setPage('debate')} />
+          <ClusterContent agentDomain={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.domain ?? agent.domain) : agent.domain} agentStance={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.stance ?? agent.stance) : agent.stance} spaceQuery={space?.query ?? ''} onBack={() => setPage('debate')} />
         </div>
       </div>
     </div>
@@ -346,7 +396,7 @@ function DebateContent({
   agents: Agent[]
   selectedEdge: Edge | null
   onBack: () => void
-  onCluster: () => void
+  onCluster: (agentId: string) => void
 }) {
   const [visibleTurns, setVisibleTurns] = useState(0)
   const [showSynthesis, setShowSynthesis] = useState(false)
@@ -395,7 +445,7 @@ function DebateContent({
               {participants.map((p) => {
                 const color = p.stance === 'pro' ? '#4ade80' : p.stance === 'con' ? '#fb7185' : '#fbbf24'
                 return (
-                  <button key={p.agent_id} onClick={onCluster} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
+                  <button key={p.agent_id} onClick={() => onCluster(p.agent_id)} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: color + '30' }}>
                       {p.stance === 'pro' ? '✅' : p.stance === 'con' ? '❌' : '⚖️'}
                     </div>
@@ -488,11 +538,13 @@ function DebateContent({
 }
 
 /* ─────────────── Cluster Page ─────────────── */
-function ClusterContent({ agentDomain, agentStance, onBack }: { agentDomain?: string; agentStance: string; onBack: () => void }) {
+function ClusterContent({ agentDomain, agentStance, spaceQuery, onBack }: { agentDomain?: string; agentStance: string; spaceQuery: string; onBack: () => void }) {
   const domainKey = agentDomain && MOCK_ZHIHU_USERS[agentDomain] ? agentDomain : 'startup'
   const users = MOCK_ZHIHU_USERS[domainKey]
   const domainLabel = DOMAIN_LABEL[agentDomain ?? ''] ?? (agentDomain || '未知领域')
   const color = agentStance === 'pro' ? '#4ade80' : agentStance === 'con' ? '#fb7185' : '#fbbf24'
+  const preset = _matchQueryPreset(spaceQuery)
+  const questions = PRESET_ZHIHU_QUESTIONS[preset]
 
   return (
     <>
@@ -510,7 +562,7 @@ function ClusterContent({ agentDomain, agentStance, onBack }: { agentDomain?: st
         <div>
           <p className="text-xs text-gray-400 font-bold mb-3">参考知乎问题</p>
           <div className="space-y-2">
-            {MOCK_ZHIHU_QUESTIONS.map((q, i) => (
+            {questions.map((q, i) => (
               <a key={i} href={q.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-50 hover:bg-white hover:shadow-sm hover:border-indigo-100 transition-all">
                 <ExternalLink className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">

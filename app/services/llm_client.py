@@ -52,50 +52,114 @@ _ROLE_POOL = [
     {"name": "政府科技官员", "persona": "工信部/科技部官员，政策制定", "domain": "gov", "summary": "国家战略层面需要冷静评估", "base_auth": 0.91, "base_nov": 0.15, "stance_bias": "con"},
 ]
 
-_MOCK_DEBATE_JSON = json.dumps({
-    "transcript": [
-        {
-            "round": 1,
-            "turns": [
-                {
-                    "agent": "agent_001",
-                    "type": "argument",
-                    "content": "AI应用层的窗口期约18个月，大厂经验可以直接转化为创业资源。",
-                    "evidence": ["2024年AI融资数据", "头部AI公司成立时间"]
-                },
-                {
-                    "agent": "agent_002",
-                    "type": "rebuttal",
-                    "content": "但首次创业失败率高达90%，盲目入场风险极大。",
-                    "evidence": ["首次创业失败率统计"]
-                }
-            ]
-        },
-        {
-            "round": 2,
-            "turns": [
-                {
-                    "agent": "agent_001",
-                    "type": "argument",
-                    "content": "我们可以先用副业验证PMF，降低试错成本。",
-                    "evidence": []
-                },
-                {
-                    "agent": "agent_002",
-                    "type": "rebuttal",
-                    "content": "副业和全职创业的心态完全不同，无法真实验证。",
-                    "evidence": []
-                }
-            ]
+def _build_debate_json(transcript: list, synthesis: dict) -> str:
+    return json.dumps({"transcript": transcript, "synthesis": synthesis})
+
+
+# ---- Per-question debate presets ----
+_DEBATE_PRESETS = {
+    "大厂5年了，该辞职去做AI创业吗？": _build_debate_json(
+        transcript=[
+            {
+                "round": 1,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "大厂5年积累的技术洞察、行业人脉和资金储备，正是AI创业最稀缺的启动资本。当前AI应用层窗口期约18个月，错过这波将失去先发优势。", "evidence": ["2024年AI应用层融资同比增长300%", "头部AI创业公司创始人平均大厂背景5.2年"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "但数据显示首次创业失败率高达92%，大厂光环在创业战场并不值钱。稳定的年薪、股票和五险一金，是35岁前最该珍惜的杠杆。", "evidence": ["《中国创业者生存报告》：首次创业失败率92.3%", "大厂P8以上年薪中位数80万+"]},
+                ]
+            },
+            {
+                "round": 2,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "所以我们不应该all in，而是先用副业验证PMF——下班后跑通MVP、验证付费意愿，降低试错成本。", "evidence": ["YC校友调研：副业验证后创业成功率提升至35%"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "副业和全职创业是完全两种心态。下班后做side project是兴趣驱动，全职创业是生存驱动——用户付费意愿、团队招募速度、抗压能力，在副业模式下根本无法真实验证。", "evidence": ["副业项目的用户留存率平均仅为全职项目的1/5"]},
+                ]
+            },
+        ],
+        synthesis={
+            "core_conflict": "风险判断的时间尺度不同：创业者看18个月窗口期，稳健派看35岁前的职业安全边际",
+            "resolution_suggestion": "建议用3-6个月副业深度验证PMF，若月活>1000且付费转化>5%，再考虑全职；否则继续深耕大厂并积累行业资源",
+            "agreement_points": ["AI是长期趋势不可逆", "需要准备而非冲动", "大厂经验是宝贵资产"],
+            "divergence_points": ["最佳入场时机（现在 vs 3年后）", "可接受的风险水平（all in vs 副业验证）", "成功概率评估（8% vs 35%）"]
         }
+    ),
+    "AI发展这么快，程序员会被取代吗？": _build_debate_json(
+        transcript=[
+            {
+                "round": 1,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "AI不是程序员的终结者，而是超级生产力工具。Copilot让编码效率提升55%，程序员从写代码转向架构设计和需求抽象，岗位总量不会减少只会升级。", "evidence": ["GitHub Copilot报告：编码效率提升55%", "Stack Overflow调研：仅12%开发者担心被AI取代"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "你混淆了'工具增强'和'岗位替代'。当AI能自动生成80%的业务代码时，企业需要的人手会指数级下降。初级程序员、CRUD工程师已经面临裁撤。", "evidence": ["2024年硅谷初级程序员岗位下降37%", "Databricks CEO：AI将消灭50%的纯编码岗位"]},
+                ]
+            },
+            {
+                "round": 2,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "历史已经证明这一点——蒸汽机没有消灭工人，Excel没有消灭会计，反而创造了更多高阶岗位。程序员的核心竞争力从来不是敲键盘的速度，而是系统思维和问题拆解能力。", "evidence": ["工业革命后全球就业总量增长400%", "软件工程师岗位过去20年增长10倍"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "但这次不同——AI替代的是认知劳动，不是体力劳动。当AI不仅能写代码，还能debug、写测试、做code review时，'系统思维'这张牌也保不了你多久。", "evidence": ["OpenAI研究：GPT-5级模型在LeetCode hard上准确率已达72%", "Google DeepMind：AI已能自主修复开源项目bug"]},
+                ]
+            },
+        ],
+        synthesis={
+            "core_conflict": "工具增强 vs 岗位替代：AI提升了单程序员产出，但是否会压缩整体岗位需求？",
+            "resolution_suggestion": "建议程序员向'AI+领域专家'转型——深耕垂直行业（金融、医疗、制造），掌握AI工具链，将不可替代性从'编码能力'转移到'业务理解+架构设计'",
+            "agreement_points": ["AI将深刻改变编程工作流", "高阶思维能力越来越重要", "持续学习是生存底线"],
+            "divergence_points": ["岗位总量变化（增长 vs 萎缩）", "初级程序员的生存空间", "转型窗口期长度"]
+        }
+    ),
+    "30岁该继续深耕技术还是转管理？": _build_debate_json(
+        transcript=[
+            {
+                "round": 1,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "管理路线是中国互联网唯一的上升通道。30岁不转管理，35岁就会被P8+的管理者领导，职业天花板触手可及。技术再深，也敌不过组织权力。", "evidence": ["大厂技术岗晋升P9平均需要12年，管理岗仅需7年", "35岁以上纯技术岗留存率不足30%"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "恰恰因为大家都在转管理，技术深耕才是差异化壁垒。全球顶尖架构师年薪500万+，且不受年龄限制。管理的'可替代性'远高于技术的'不可替代性'。", "evidence": ["硅谷Staff+工程师平均年薪$800K", "Linus Torvalds 54岁仍是一线核心开发者"]},
+                ]
+            },
+            {
+                "round": 2,
+                "turns": [
+                    {"agent": "agent_001", "type": "argument", "content": "但你要想清楚——管理能力是复利资产，技术能力是折旧资产。管理经验的迁移性（跨公司、跨行业）远高于特定技术栈。", "evidence": ["MBA毕业生10年平均薪资增长280%，工程师仅95%", "管理者跨行业成功率是技术专家的3倍"]},
+                    {"agent": "agent_002", "type": "rebuttal", "content": "管理的'迁移性'是幻觉——你在A公司的团队管理方法论，在B公司可能完全不适用。而系统架构思维、算法功底、工程判断力，是真正的跨时代能力。", "evidence": ["《哈佛商业评论》：70%的管理者跨公司表现低于预期", "系统设计能力是工程师35岁后最值钱的技能"]},
+                ]
+            },
+        ],
+        synthesis={
+            "core_conflict": "深度专精 vs 广度管理：技术路线的不可替代性 vs 管理路线的天花板高度",
+            "resolution_suggestion": "建议用'T型策略'——在30-35岁保持技术深度（成为领域专家或架构师），同时选择性承担小型项目管理（3-5人），35岁后根据'产品型人格'或'技术型人格'做最终选择",
+            "agreement_points": ["30岁是职业分水岭", "需要主动规划而非被动等待", "大厂环境对纯技术路线不友好"],
+            "divergence_points": ["天花板定义（薪资 vs 影响力）", "年龄友好度（技术岗 vs 管理岗）", "个人特质匹配度"]
+        }
+    ),
+}
+
+
+# ---- Per-question agent presets ----
+_QUESTION_AGENT_PRESETS = {
+    "大厂5年了，该辞职去做AI创业吗？": [
+        {"name": "AI创业者", "stance": "pro"},
+        {"name": "大厂高管", "stance": "con"},
+        {"name": "早期投资人", "stance": "neutral"},
+        {"name": "风险分析师", "stance": "con"},
+        {"name": "独立开发者", "stance": "pro"},
+        {"name": "财务顾问", "stance": "con"},
     ],
-    "synthesis": {
-        "core_conflict": "风险判断的时间尺度不同",
-        "resolution_suggestion": "先用副业验证PMF，降低试错成本",
-        "agreement_points": ["AI是长期趋势", "需要准备而非冲动"],
-        "divergence_points": ["最佳入场时机", "可接受的风险水平"]
-    }
-})
+    "AI发展这么快，程序员会被取代吗？": [
+        {"name": "技术布道者", "stance": "pro"},
+        {"name": "大学教授", "stance": "con"},
+        {"name": "全栈工程师", "stance": "pro"},
+        {"name": "心理学家", "stance": "neutral"},
+        {"name": "哲学家", "stance": "neutral"},
+        {"name": "科技记者", "stance": "neutral"},
+    ],
+    "30岁该继续深耕技术还是转管理？": [
+        {"name": "大厂高管", "stance": "con"},
+        {"name": "全栈工程师", "stance": "pro"},
+        {"name": "HR总监", "stance": "neutral"},
+        {"name": "咨询顾问", "stance": "neutral"},
+        {"name": "产品经理", "stance": "neutral"},
+        {"name": "技术作家", "stance": "pro"},
+    ],
+}
 
 
 def _hash_int(text: str, index: int, mod: int) -> int:
@@ -110,41 +174,38 @@ def _hash_float(text: str, index: int) -> float:
     return int(h[:8], 16) / 0xFFFFFFFF
 
 
-def _generate_mock_agents(query: str) -> str:
-    """Generate 5-8 deterministic agents from 40-role pool based on query hash."""
-    # Select 5-8 agents
-    num_agents = 5 + _hash_int(query, 0, 4)  # 5 to 8
-    # Shuffle index pool deterministically
-    indices = list(range(len(_ROLE_POOL)))
-    # Fisher-Yates shuffle with hash seed
-    for i in range(len(indices) - 1, 0, -1):
-        j = _hash_int(query, i + 100, i + 1)
-        indices[i], indices[j] = indices[j], indices[i]
+def _find_role(name: str) -> dict:
+    for role in _ROLE_POOL:
+        if role["name"] == name:
+            return role
+    return _ROLE_POOL[0]
 
-    selected = indices[:num_agents]
+
+def _match_preset(query: str) -> str:
+    """Match query to one of the 3 demo questions."""
+    q = query.strip()
+    if "程序" in q or "取代" in q or "失业" in q or "替代" in q:
+        return "AI发展这么快，程序员会被取代吗？"
+    if "管理" in q or "转管理" in q or "深耕技术" in q or "技术还是管理" in q:
+        return "30岁该继续深耕技术还是转管理？"
+    return "大厂5年了，该辞职去做AI创业吗？"
+
+
+def _generate_mock_agents(query: str) -> str:
+    """Generate fixed agent composition based on query match."""
+    preset_key = _match_preset(query)
+    preset = _QUESTION_AGENT_PRESETS[preset_key]
     agents = []
 
-    for idx, role_idx in enumerate(selected):
-        role = _ROLE_POOL[role_idx]
-        # Perturb coordinates slightly based on query hash
-        auth = max(0.0, min(1.0, role["base_auth"] + (_hash_float(query, idx * 2) - 0.5) * 0.15))
-        nov = max(0.0, min(1.0, role["base_nov"] + (_hash_float(query, idx * 2 + 1) - 0.5) * 0.15))
-
-        # Stance: mostly follow bias, occasionally flip
-        stance = role["stance_bias"]
-        flip = _hash_float(query, idx * 3 + 200)
-        if flip < 0.08:
-            stance = "pro" if stance != "pro" else "neutral"
-        elif flip > 0.92:
-            stance = "con" if stance != "con" else "neutral"
-
+    for idx, cfg in enumerate(preset):
+        role = _find_role(cfg["name"])
         agents.append({
             "agent_id": f"agent_{idx + 1:03d}",
             "name": role["name"],
             "persona": role["persona"],
-            "position": {"authority": round(auth, 3), "novelty": round(nov, 3)},
-            "stance": stance,
-            "confidence": round(0.65 + _hash_float(query, idx * 4 + 300) * 0.25, 2),
+            "position": {"authority": round(role["base_auth"], 3), "novelty": round(role["base_nov"], 3)},
+            "stance": cfg["stance"],
+            "confidence": round(0.72 + idx * 0.03, 2),
             "domain": role["domain"],
             "summary": role["summary"],
         })
@@ -169,10 +230,7 @@ def _mock_chat_completion(messages: list[dict[str, str]], json_mode: bool = Fals
     """Return predefined mock data based on prompt content."""
     prompt_text = " ".join(m.get("content", "") for m in messages)
 
-    if "辩论主持人" in prompt_text or "transcript" in prompt_text:
-        return _MOCK_DEBATE_JSON
-
-    # Extract query from user message for deterministic generation
+    # Extract query from user message
     query = ""
     for m in messages:
         if m.get("role") == "user" and "问题：" in m.get("content", ""):
@@ -180,6 +238,20 @@ def _mock_chat_completion(messages: list[dict[str, str]], json_mode: bool = Fals
             break
     if not query:
         query = prompt_text[:50]
+
+    preset_key = _match_preset(query)
+
+    if "辩论主持人" in prompt_text or "transcript" in prompt_text:
+        debate_json = _DEBATE_PRESETS.get(preset_key, _DEBATE_PRESETS["大厂5年了，该辞职去做AI创业吗？"])
+        # Replace hardcoded agent IDs with actual participants from prompt
+        import re
+        match = re.search(r'\[AGENTS:([^,]+),([^\]]+)\]', prompt_text)
+        if match:
+            source_id = match.group(1).strip()
+            target_id = match.group(2).strip()
+            debate_json = debate_json.replace('"agent_001"', f'"{source_id}"')
+            debate_json = debate_json.replace('"agent_002"', f'"{target_id}"')
+        return debate_json
 
     return _generate_mock_agents(query)
 

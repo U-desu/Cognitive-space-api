@@ -28,7 +28,8 @@ def _build_prompt(agent_a: Agent, agent_b: Agent, edge: Edge, request: DebateReq
     if request.focus_axes:
         focus = f"\n请特别围绕以下分歧轴展开辩论：{', '.join(request.focus_axes)}"
 
-    return f"""专家 A：{agent_a.name}（立场：{agent_a.stance}）
+    return f"""[AGENTS:{agent_a.agent_id},{agent_b.agent_id}]
+专家 A：{agent_a.name}（立场：{agent_a.stance}）
 观点摘要：{agent_a.summary}
 人物设定：{agent_a.persona}
 
