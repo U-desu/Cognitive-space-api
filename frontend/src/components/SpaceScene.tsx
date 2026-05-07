@@ -1,328 +1,306 @@
-import { useState, useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars, Html, Line, Sphere } from '@react-three/drei'
-import * as THREE from 'three'
+import { useState, useMemo } from 'react'
 import { useSpaceState } from '../store/SpaceContext'
-import { api } from '../api'
-import type { Edge, Agent } from '../api-types'
+import type { Agent } from '../api-types'
 
-const RADIUS = 2.5
+const W = 1000
+const H = 1000
 
 const STANCE_COLORS: Record<string, string> = {
-  pro: '#06b6d4',
-  con: '#ef4444',
-  neutral: '#f59e0b',
+  pro: '#4ade80',
+  con: '#fb7185',
+  neutral: '#fbbf24',
 }
 
-/** Generate a vivid, distinguishable color from edge_id */
-function edgeColor(edgeId: string): string {
-  let hash = 0
-  for (let i = 0; i < edgeId.length; i++) {
-    hash = ((hash << 5) - hash) + edgeId.charCodeAt(i)
-    hash |= 0
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 85%, 60%)`
-}
+const CENTER_COLOR = '#818cf8'
 
-/** Fibonacci Sphere: evenly distribute N points on a sphere */
-function fibonacciSphere(n: number, radius: number): [number, number, number][] {
-  const points: [number, number, number][] = []
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5))
-  for (let i = 0; i < n; i++) {
-    const y = 1 - (i / (n - 1)) * 2
-    const r = Math.sqrt(1 - y * y)
-    const theta = goldenAngle * i
-    const x = Math.cos(theta) * r
-    const z = Math.sin(theta) * r
-    points.push([x * radius, y * radius, z * radius])
-  }
-  return points
-}
-
-interface AgentNodeProps {
-  agent: Agent
-  position: [number, number, number]
-  isHovered: boolean
-  onHover: (id: string | null) => void
-  onClick: () => void
-}
-
-function AgentNode({ agent, position, isHovered, onHover, onClick }: AgentNodeProps) {
-  const meshRef = useRef<THREE.Mesh>(null)
-  const color = STANCE_COLORS[agent.stance] || '#94a3b8'
-  const size = 0.12 + (agent.confidence || 0.8) * 0.08
-
-  useFrame(() => {
-    if (meshRef.current) {
-      const target = isHovered ? size * 1.4 : size
-      meshRef.current.scale.lerp(new THREE.Vector3(target, target, target), 0.1)
-    }
-  })
-
-  return (
-    <group position={position}>
-      <Sphere
-        ref={meshRef}
-        args={[size, 32, 32]}
-        onPointerOver={(e) => {
-          e.stopPropagation()
-          onHover(agent.agent_id)
-        }}
-        onPointerOut={() => onHover(null)}
-        onClick={(e) => {
-          e.stopPropagation()
-          onClick()
-        }}
-      >
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={isHovered ? 0.8 : 0.3}
-          roughness={0.3}
-          metalness={0.6}
-        />
-      </Sphere>
-      <pointLight color={color} intensity={isHovered ? 2 : 0.8} distance={3} />
-
-      {/* Name label always facing camera */}
-      <Html center distanceFactor={8} style={{ pointerEvents: 'none' }}>
-        <div
-          className="px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
-          style={{
-            color: '#e2e8f0',
-            backgroundColor: 'rgba(10,10,15,0.85)',
-            border: `1px solid ${color}40`,
-            textShadow: `0 0 8px ${color}60`,
-          }}
-        >
-          {agent.name}
-        </div>
-      </Html>
-
-      {/* Hover tooltip */}
-      {isHovered && (
-        <Html position={[0, size + 0.3, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="px-3 py-2 rounded-lg bg-space-surface border border-space-border shadow-xl whitespace-nowrap">
-            <div className="text-xs font-bold" style={{ color }}>
-              {agent.stance.toUpperCase()}
-            </div>
-            <div className="text-xs text-space-muted mt-0.5 max-w-[180px] truncate">
-              {agent.summary}
-            </div>
-            <div className="text-[10px] text-space-muted font-mono mt-1">
-              auth: {agent.position.authority.toFixed(2)} · nov: {agent.position.novelty.toFixed(2)}
-            </div>
-          </div>
-        </Html>
-      )}
-    </group>
-  )
-}
-
-interface ConnectionLineProps {
-  edge: Edge
-  sourcePos: [number, number, number]
-  targetPos: [number, number, number]
-  sourceName: string
-  targetName: string
-  isHovered: boolean
-  onHover: (id: string | null) => void
-  onClick: () => void
-}
-
-function ConnectionLine({
-  edge,
-  sourcePos,
-  targetPos,
-  sourceName,
-  targetName,
-  isHovered,
-  onHover,
-  onClick,
-}: ConnectionLineProps) {
-  const color = edgeColor(edge.edge_id)
-  const lineWidth = Math.max(0.6, edge.conflict_score * 2.2)
-  const opacity = isHovered ? 1 : 0.35 + edge.conflict_score * 0.45
-  const isFundamental = edge.conflict_type === 'fundamental'
-
-  const midPoint: [number, number, number] = [
-    (sourcePos[0] + targetPos[0]) / 2,
-    (sourcePos[1] + targetPos[1]) / 2,
-    (sourcePos[2] + targetPos[2]) / 2,
-  ]
-
-  return (
-    <group>
-      <Line
-        points={[sourcePos, targetPos]}
-        color={color}
-        lineWidth={lineWidth}
-        opacity={opacity}
-        transparent
-        dashed={isFundamental}
-        dashSize={0.08}
-        gapSize={0.05}
-        onPointerOver={(e) => {
-          e.stopPropagation()
-          onHover(edge.edge_id)
-        }}
-        onPointerOut={() => onHover(null)}
-        onClick={(e) => {
-          e.stopPropagation()
-          onClick()
-        }}
-      />
-      {isHovered && (
-        <Html position={midPoint} style={{ pointerEvents: 'none' }}>
-          <div className="px-3 py-2 rounded-lg bg-space-surface border border-space-border shadow-2xl whitespace-nowrap">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-xs text-space-cyan font-medium">{sourceName}</span>
-              <span className="text-xs text-space-muted">↔</span>
-              <span className="text-xs text-space-red font-medium">{targetName}</span>
-            </div>
-            <div className="text-sm font-mono font-bold text-space-magenta">
-              冲突分数: {edge.conflict_score.toFixed(3)}
-            </div>
-            <div className="text-xs text-space-muted capitalize">
-              {edge.conflict_type}
-              {edge.debate_recommended && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-space-magenta/15 text-space-magenta text-[10px]">
-                  建议辩论
-                </span>
-              )}
-            </div>
-          </div>
-        </Html>
-      )}
-    </group>
-  )
-}
-
-function ReferenceSphere() {
-  return (
-    <Sphere args={[RADIUS * 0.98, 64, 64]}>
-      <meshBasicMaterial
-        color="#06b6d4"
-        wireframe
-        transparent
-        opacity={0.04}
-      />
-    </Sphere>
-  )
-}
-
-function SceneContent({ onEdgeClick }: { onEdgeClick: (edgeId: string) => void }) {
-  const { state, dispatch } = useSpaceState()
-  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
-  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null)
-
-  const space = state.space
-  const edges = state.edges
-  const agents = space?.agents ?? []
-
-  const positions = useMemo(() => {
-    return fibonacciSphere(agents.length, RADIUS)
-  }, [agents.length])
-
-  const agentPositions = useMemo(() => {
-    const map = new Map<string, [number, number, number]>()
-    agents.forEach((agent, i) => {
-      map.set(agent.agent_id, positions[i])
-    })
-    return map
-  }, [agents, positions])
-
-  const visibleEdges = useMemo(() => {
-    return edges.filter((e) => e.conflict_score > 0.25)
-  }, [edges])
-
-  async function handleEdgeClick(edgeId: string) {
-    if (!space) return
-    try {
-      await api.createDebate(space.space_id, { edge_id: edgeId, format: 'structured', rounds: 2 })
-    } catch {
-      // Mock mode fallback
-    }
-    onEdgeClick(edgeId)
-  }
-
-  async function handleAgentClick(_agentId: string) {
-    if (!space) return
-    try {
-      const traj = await api.getTrajectory(space.space_id)
-      dispatch({ type: 'SET_TRAJECTORY', payload: traj })
-    } catch {
-      // ignore
-    }
-  }
-
-  return (
-    <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[0, 0, 0]} intensity={0.5} color="#06b6d4" />
-      <Stars radius={50} depth={50} count={2000} factor={3} saturation={0} fade speed={1} />
-      <ReferenceSphere />
-
-      {/* Connection Lines */}
-      {visibleEdges.map((edge) => {
-        const sourcePos = agentPositions.get(edge.source)
-        const targetPos = agentPositions.get(edge.target)
-        if (!sourcePos || !targetPos) return null
-        const source = agents.find((a) => a.agent_id === edge.source)
-        const target = agents.find((a) => a.agent_id === edge.target)
-        return (
-          <ConnectionLine
-            key={edge.edge_id}
-            edge={edge}
-            sourcePos={sourcePos}
-            targetPos={targetPos}
-            sourceName={source?.name ?? edge.source}
-            targetName={target?.name ?? edge.target}
-            isHovered={hoveredEdge === edge.edge_id}
-            onHover={setHoveredEdge}
-            onClick={() => handleEdgeClick(edge.edge_id)}
-          />
-        )
-      })}
-
-      {/* Agent Nodes */}
-      {agents.map((agent, i) => (
-        <AgentNode
-          key={agent.agent_id}
-          agent={agent}
-          position={positions[i]}
-          isHovered={hoveredAgent === agent.agent_id}
-          onHover={setHoveredAgent}
-          onClick={() => handleAgentClick(agent.agent_id)}
-        />
-      ))}
-
-      <OrbitControls
-        enablePan={false}
-        enableZoom={true}
-        minDistance={3}
-        maxDistance={10}
-        autoRotate
-        autoRotateSpeed={0.5}
-      />
-    </>
-  )
+function polarToCartesian(
+  cx: number,
+  cy: number,
+  r: number,
+  angleDeg: number
+): [number, number] {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180
+  return [cx + r * Math.cos(angleRad), cy + r * Math.sin(angleRad)]
 }
 
 interface Props {
-  onEdgeClick: (edgeId: string) => void
+  onAgentClick: (agentId: string) => void
+  selectedAgent: string | null
+  viewMode: 'global' | 'focus'
 }
 
-export default function SpaceScene({ onEdgeClick }: Props) {
+export default function SpaceScene({ onAgentClick, selectedAgent, viewMode }: Props) {
+  const { state } = useSpaceState()
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
+  const [hoveredCenter, setHoveredCenter] = useState(false)
+
+  const space = state.space
+  const agents = space?.agents ?? []
+
+  // Global view: agents around center "You"
+  const globalPositions = useMemo(() => {
+    const map = new Map<string, [number, number]>()
+    const count = agents.length
+    const radius = 320
+    agents.forEach((agent, i) => {
+      const angle = (360 / count) * i
+      map.set(agent.agent_id, polarToCartesian(W / 2, H / 2, radius, angle))
+    })
+    return map
+  }, [agents])
+
+  // Focus view: selected agent in center, "You" below, others in background
+  const focusPositions = useMemo(() => {
+    const map = new Map<string, [number, number]>()
+    if (!selectedAgent) return map
+
+    const selected = agents.find((a) => a.agent_id === selectedAgent)
+    if (!selected) return map
+
+    // Selected agent at visual center
+    map.set(selectedAgent, [W / 2, 400])
+
+    // "You" at bottom center
+    const youPos: [number, number] = [W / 2, 780]
+    map.set('__center__', youPos)
+
+    // Other agents distributed in background (upper semicircle + sides)
+    const others = agents.filter((a) => a.agent_id !== selectedAgent)
+    const count = others.length
+    const radius = 400
+    others.forEach((agent, i) => {
+      // Distribute from -120° to +120° (avoid bottom where "You" is)
+      const angle = -120 + (240 / Math.max(1, count - 1)) * i
+      map.set(agent.agent_id, polarToCartesian(W / 2, 400, radius, angle))
+    })
+
+    return map
+  }, [agents, selectedAgent])
+
+  const isGlobal = viewMode === 'global'
+  const positions = isGlobal ? globalPositions : focusPositions
+
   return (
-    <div className="absolute inset-0">
-      <Canvas
-        camera={{ position: [0, 0, 5.5], fov: 50 }}
-        style={{ width: '100%', height: '100%', background: '#0a0a0f' }}
+    <div className="w-full h-full flex items-center justify-center relative overflow-hidden bg-[#f0f4ff]">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-full max-w-4xl max-h-[80vh] transition-opacity duration-500"
+        style={{ aspectRatio: '1 / 1' }}
       >
-        <SceneContent onEdgeClick={onEdgeClick} />
-      </Canvas>
+        {/* Background reference circles (global only) */}
+        {isGlobal && (
+          <>
+            <circle cx={W / 2} cy={H / 2} r={320} fill="none" stroke="#e0e7ff" strokeWidth="2" />
+            <circle cx={W / 2} cy={H / 2} r={190} fill="none" stroke="#e0e7ff" strokeWidth="1" />
+          </>
+        )}
+
+        {/* Star lines */}
+        {isGlobal
+          ? // Global: center -> each agent
+            agents.map((agent) => {
+              const pos = positions.get(agent.agent_id)
+              if (!pos) return null
+              const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+              const isSel = selectedAgent === agent.agent_id
+              const isHov = hoveredAgent === agent.agent_id
+              const opacity = isSel ? 0.7 : isHov ? 0.5 : 0.25
+              const strokeWidth = isSel ? 4 : isHov ? 3 : 2
+              return (
+                <line
+                  key={`line-${agent.agent_id}`}
+                  x1={W / 2}
+                  y1={H / 2}
+                  x2={pos[0]}
+                  y2={pos[1]}
+                  stroke={color}
+                  strokeWidth={strokeWidth}
+                  opacity={opacity}
+                  style={{ transition: 'all 0.3s', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredAgent(agent.agent_id)}
+                  onMouseLeave={() => setHoveredAgent(null)}
+                  onClick={() => onAgentClick(agent.agent_id)}
+                />
+              )
+            })
+          : // Focus: selected agent <-> "You" (thick), selected <-> others (thin)
+            selectedAgent &&
+            agents.map((agent) => {
+              const selectedPos = positions.get(selectedAgent)
+              const agentPos = positions.get(agent.agent_id)
+              if (!selectedPos || !agentPos) return null
+              if (agent.agent_id === selectedAgent) return null
+
+              const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+              const isHov = hoveredAgent === agent.agent_id
+              const isYou = agentPos[1] > 700 // roughly the "You" position
+              const opacity = isYou ? 0.6 : isHov ? 0.35 : 0.18
+              const strokeWidth = isYou ? 5 : 2
+
+              return (
+                <line
+                  key={`line-${agent.agent_id}`}
+                  x1={selectedPos[0]}
+                  y1={selectedPos[1]}
+                  x2={agentPos[0]}
+                  y2={agentPos[1]}
+                  stroke={isYou ? CENTER_COLOR : color}
+                  strokeWidth={strokeWidth}
+                  opacity={opacity}
+                  strokeDasharray={isYou ? '0' : '6,4'}
+                  style={{ transition: 'all 0.3s', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredAgent(agent.agent_id)}
+                  onMouseLeave={() => setHoveredAgent(null)}
+                  onClick={() => onAgentClick(agent.agent_id)}
+                />
+              )
+            })}
+
+        {/* Center node "You" */}
+        {isGlobal ? (
+          <g
+            onMouseEnter={() => setHoveredCenter(true)}
+            onMouseLeave={() => setHoveredCenter(false)}
+          >
+            <circle cx={W / 2} cy={H / 2} r={hoveredCenter ? 52 : 48} fill={CENTER_COLOR} opacity={0.9} style={{ transition: 'r 0.2s' }} />
+            <circle cx={W / 2} cy={H / 2} r={hoveredCenter ? 58 : 54} fill="none" stroke={CENTER_COLOR} strokeWidth={3} opacity={0.3} style={{ transition: 'r 0.2s' }} />
+            <text x={W / 2} y={H / 2 - 6} textAnchor="middle" fill="white" fontSize="28">👤</text>
+            <text x={W / 2} y={H / 2 + 18} textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">你</text>
+          </g>
+        ) : (
+          // Focus mode: "You" at bottom
+          <g
+            transform="translate(0, 0)"
+            onMouseEnter={() => setHoveredCenter(true)}
+            onMouseLeave={() => setHoveredCenter(false)}
+          >
+            <circle cx={W / 2} cy={780} r={hoveredCenter ? 42 : 38} fill={CENTER_COLOR} opacity={0.85} style={{ transition: 'r 0.2s' }} />
+            <text x={W / 2} y={780 - 4} textAnchor="middle" fill="white" fontSize="22">👤</text>
+            <text x={W / 2} y={780 + 16} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">你</text>
+          </g>
+        )}
+
+        {/* Agent nodes */}
+        {agents.map((agent) => {
+          const pos = positions.get(agent.agent_id)
+          if (!pos) return null
+          const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+          const isSel = selectedAgent === agent.agent_id
+          const isHov = hoveredAgent === agent.agent_id
+
+          // Radius depends on mode and selection
+          let r = 28
+          if (isGlobal) {
+            r = isSel ? 36 : isHov ? 32 : 28
+          } else {
+            r = isSel ? 70 : isHov ? 30 : 20
+          }
+
+          // Opacity for background agents in focus mode
+          const opacity = !isGlobal && !isSel ? 0.45 : 0.9
+
+          return (
+            <g
+              key={agent.agent_id}
+              onMouseEnter={() => setHoveredAgent(agent.agent_id)}
+              onMouseLeave={() => setHoveredAgent(null)}
+              onClick={() => onAgentClick(agent.agent_id)}
+              style={{ cursor: 'pointer' }}
+              opacity={opacity}
+            >
+              {/* Selection / focus ring */}
+              {isSel && (
+                <circle
+                  cx={pos[0]}
+                  cy={pos[1]}
+                  r={r + (isGlobal ? 10 : 16)}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={isGlobal ? 3 : 4}
+                  opacity={0.35}
+                >
+                  <animate attributeName="r" values={`${r + (isGlobal ? 8 : 14)};${r + (isGlobal ? 12 : 20)};${r + (isGlobal ? 8 : 14)}`} dur="2s" repeatCount="indefinite" />
+                </circle>
+              )}
+
+              {/* Main circle */}
+              <circle cx={pos[0]} cy={pos[1]} r={r} fill={color} opacity={0.9} style={{ transition: 'r 0.3s' }} />
+
+              {/* Emoji */}
+              <text x={pos[0]} y={pos[1] + (isSel && !isGlobal ? 10 : 6)} textAnchor="middle" fontSize={isSel && !isGlobal ? '36' : '20'}>
+                {agent.stance === 'pro' ? '✅' : agent.stance === 'con' ? '❌' : '⚖️'}
+              </text>
+
+              {/* Name label (hide for non-selected in focus mode) */}
+              {(!isGlobal && !isSel) ? (
+                // Small label for background agents
+                <text x={pos[0]} y={pos[1] + r + 14} textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="600">
+                  {agent.name}
+                </text>
+              ) : (
+                // Pill label for selected / global view
+                <foreignObject x={pos[0] - 60} y={pos[1] + r + 10} width={120} height={40}>
+                  <div
+                    className="flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow-sm"
+                    style={{
+                      color: '#fff',
+                      backgroundColor: color,
+                      border: '2px solid #fff',
+                      boxShadow: isSel ? `0 0 0 3px ${color}40, 0 4px 12px ${color}60` : `0 2px 8px ${color}60`,
+                      display: 'inline-block',
+                    }}
+                  >
+                    {agent.name}
+                  </div>
+                </foreignObject>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* HTML Tooltip overlay */}
+      {hoveredAgent && (
+        <AgentTooltip
+          agent={agents.find((a) => a.agent_id === hoveredAgent)!}
+          onMouseEnter={() => setHoveredAgent(hoveredAgent)}
+          onMouseLeave={() => setHoveredAgent(null)}
+        />
+      )}
+      {hoveredCenter && !hoveredAgent && (
+        <CenterTooltip
+          onMouseEnter={() => setHoveredCenter(true)}
+          onMouseLeave={() => setHoveredCenter(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function AgentTooltip({ agent, onMouseEnter, onMouseLeave }: { agent: Agent; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+  return (
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="px-4 py-3 rounded-2xl bg-white border-2 border-indigo-100 shadow-xl whitespace-nowrap">
+        <div className="text-xs font-extrabold" style={{ color }}>
+          {agent.stance === 'pro' ? '✅ 支持' : agent.stance === 'con' ? '❌ 反对' : '⚖️ 中立'}
+        </div>
+        <div className="text-xs text-gray-500 mt-1 max-w-[200px] truncate">{agent.summary}</div>
+        <div className="text-[10px] text-gray-400 font-mono mt-1">
+          权威: {agent.position.authority.toFixed(2)} · 新颖: {agent.position.novelty.toFixed(2)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CenterTooltip({ onMouseEnter, onMouseLeave }: { onMouseEnter: () => void; onMouseLeave: () => void }) {
+  return (
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="px-4 py-2 rounded-2xl bg-white border-2 border-indigo-100 shadow-xl whitespace-nowrap">
+        <div className="text-xs font-extrabold text-indigo-400">🌟 你的决策问题</div>
+        <div className="text-xs text-gray-400 mt-0.5">所有观点围绕你的问题展开</div>
+      </div>
     </div>
   )
 }

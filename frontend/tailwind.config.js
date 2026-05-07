@@ -6,15 +6,16 @@ export default {
     extend: {
       colors: {
         space: {
-          bg: '#0a0a0f',
-          surface: '#12121a',
-          border: '#1e1e2e',
-          text: '#e2e8f0',
-          muted: '#64748b',
-          cyan: '#06b6d4',
-          magenta: '#d946ef',
-          amber: '#f59e0b',
-          red: '#ef4444',
+          bg: '#f0f4ff',
+          surface: '#ffffff',
+          border: '#c7d2fe',
+          text: '#374151',
+          muted: '#6b7280',
+          cyan: '#60a5fa',
+          magenta: '#c084fc',
+          amber: '#fbbf24',
+          red: '#fb7185',
+          green: '#4ade80',
         },
       },
       fontFamily: {

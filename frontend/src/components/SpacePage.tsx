@@ -3,15 +3,18 @@ import { useParams } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
 import SpaceScene from './SpaceScene'
-import DebatePanel from './DebatePanel'
+import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import ShareCard from './ShareCard'
+import { ArrowLeft, Loader2, Share2, RotateCcw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function SpacePage() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const { state, dispatch } = useSpaceState()
-  const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'global' | 'focus'>('global')
+  const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
     if (!spaceId) return
@@ -44,10 +47,20 @@ export default function SpacePage() {
     return () => { cancelled = true }
   }, [spaceId, dispatch])
 
+  const handleAgentClick = (agentId: string) => {
+    setSelectedAgent(agentId)
+    setViewMode('focus')
+  }
+
+  const handleBackToGlobal = () => {
+    setSelectedAgent(null)
+    setViewMode('global')
+  }
+
   if (state.loading && !state.space) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-10 h-10 text-space-cyan animate-spin" />
+        <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
       </div>
     )
   }
@@ -55,8 +68,8 @@ export default function SpacePage() {
   if (state.error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-space-red mb-4">{state.error}</p>
-        <Link to="/" className="text-space-cyan hover:underline">
+        <p className="text-rose-500 mb-4 font-bold">{state.error}</p>
+        <Link to="/" className="text-indigo-400 hover:underline font-bold">
           ← 返回首页
         </Link>
       </div>
@@ -65,28 +78,67 @@ export default function SpacePage() {
 
   if (!state.space) return null
 
+  const isFocus = viewMode === 'focus'
+
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="flex items-center gap-4 px-6 py-4 border-b border-space-border bg-space-surface/50 backdrop-blur">
-        <Link to="/" className="text-space-muted hover:text-space-text transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h2 className="text-lg font-medium truncate max-w-xl">
-          {state.space.query}
+      {/* Header */}
+      <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
+        {isFocus ? (
+          <button
+            onClick={handleBackToGlobal}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-500 transition-colors"
+            title="返回全局视图"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+        )}
+
+        <h2 className="text-base font-bold text-gray-700 truncate max-w-xl flex-1">
+          {isFocus && selectedAgent
+            ? (() => {
+                const agent = state.space?.agents.find((a) => a.agent_id === selectedAgent)
+                return agent ? `🔍 聚焦：${agent.name}` : state.space.query
+              })()
+            : state.space.query}
         </h2>
+
+        <button
+          onClick={() => setShowShare(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          分享
+        </button>
       </header>
 
       <MetricsHUD />
 
-      <main className="relative" style={{ height: 'calc(100vh - 120px)' }}>
+      <main className="relative flex-1" style={{ height: 'calc(100vh - 120px)' }}>
         <SpaceScene
-          onEdgeClick={(edgeId) => setSelectedEdge(edgeId)}
+          onAgentClick={handleAgentClick}
+          selectedAgent={selectedAgent}
+          viewMode={viewMode}
         />
 
-        {selectedEdge && (
-          <DebatePanel
-            edgeId={selectedEdge}
-            onClose={() => setSelectedEdge(null)}
+        {selectedAgent && isFocus && (
+          <AgentPanel
+            agentId={selectedAgent}
+            onClose={handleBackToGlobal}
+          />
+        )}
+
+        {showShare && spaceId && (
+          <ShareCard
+            spaceId={spaceId}
+            onClose={() => setShowShare(false)}
           />
         )}
       </main>

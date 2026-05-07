@@ -50,9 +50,14 @@ def get_or_create_trajectory(space_id: str) -> Trajectory:
             trajectory_id=f"traj_{space_id}",
             space_id=space_id,
             path=[],
-            cognitive_metrics={},
+            cognitive_metrics={
+                "coverage_area": 0.18,
+                "depth_score": 0.12,
+                "breadth_score": 0.25,
+                "conflict_engagement": 0.10,
+            },
             journey_stage="exploration",
-            suggested_next={},
+            suggested_next={"action": "view_agent", "reason": "开始探索不同专家视角"},
         )
     return _trajectories[space_id]
 

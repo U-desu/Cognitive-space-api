@@ -1,8 +1,29 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, ArrowRight, Sparkles } from 'lucide-react'
+import { Compass, ArrowRight, Sparkles, Briefcase, Code, Heart } from 'lucide-react'
 import { api } from '../api'
 import { useSpaceState } from '../store/SpaceContext'
+
+const HOT_QUESTIONS = [
+  {
+    icon: Briefcase,
+    label: '职业',
+    text: '大厂5年了，该辞职去做AI创业吗？',
+    color: '#60a5fa',
+  },
+  {
+    icon: Code,
+    label: '技术',
+    text: 'AI发展这么快，程序员会被取代吗？',
+    color: '#4ade80',
+  },
+  {
+    icon: Heart,
+    label: '成长',
+    text: '30岁该继续深耕技术还是转管理？',
+    color: '#fb7185',
+  },
+]
 
 export default function LandingPage() {
   const [query, setQuery] = useState('')
@@ -27,57 +48,94 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
-      <div className="text-center mb-12">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-space-surface border border-space-border glow-cyan mb-6">
-          <Brain className="w-10 h-10 text-space-cyan" />
+      {/* 顶部徽章 */}
+      <div className="mb-6 px-4 py-1.5 rounded-full bg-white border border-indigo-100 shadow-sm">
+        <span className="text-xs font-bold text-indigo-400">
+          🚀 知乎黑客松 Demo — 决策罗盘
+        </span>
+      </div>
+
+      {/* 主标题区域 */}
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white border-2 border-indigo-100 shadow-lg mb-6">
+          <Compass className="w-10 h-10 text-indigo-400" />
         </div>
-        <h1 className="text-5xl font-bold mb-4 text-glow">
-          认知空间
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-space-text tracking-tight">
+          🧭 决策罗盘
         </h1>
-        <p className="text-space-muted text-lg max-w-md mx-auto">
-          输入一个问题，探索多视角认知冲突，构建你的认知拓扑
+        <p className="text-space-muted text-lg max-w-lg mx-auto leading-relaxed">
+          遇到重大选择犹豫不决？<br />
+          <span className="text-indigo-500 font-bold">召唤不同视角的角色</span>，
+          帮你看到分歧、理清思路
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-2xl relative"
-      >
-        <div className="relative bg-space-surface border border-space-border rounded-2xl p-2 glow-cyan">
+      {/* 输入框 */}
+      <form onSubmit={handleSubmit} className="w-full max-w-2xl relative mb-8">
+        <div className="relative bg-white border-2 border-indigo-100 rounded-3xl p-2 shadow-lg">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="例如：我是否应该从大厂离职去做AI创业？"
-            className="w-full bg-transparent px-6 py-4 text-lg outline-none placeholder:text-space-muted/50"
+            placeholder="输入你的困惑，比如：我该辞职创业吗？"
+            className="w-full bg-transparent px-6 py-4 text-lg outline-none placeholder:text-gray-300"
           />
           <button
             type="submit"
             disabled={loading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 px-6 py-2.5 bg-space-cyan/10 hover:bg-space-cyan/20 text-space-cyan rounded-xl border border-space-cyan/30 transition-all disabled:opacity-50"
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 px-6 py-2.5 bg-indigo-400 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md transition-all disabled:opacity-50"
           >
             {loading ? (
               <Sparkles className="w-4 h-4 animate-spin" />
             ) : (
               <ArrowRight className="w-4 h-4" />
             )}
-            <span className="font-medium">
-              {loading ? '生成中...' : '探索'}
+            <span className="font-bold">
+              {loading ? '召唤中...' : '开始探索'}
             </span>
           </button>
         </div>
       </form>
 
-      <div className="mt-8 flex gap-3">
-        {['职业决策', '投资决策', '技术选型'].map((tag) => (
-          <button
-            key={tag}
-            onClick={() => setQuery(`关于${tag}的问题`)}
-            className="px-4 py-1.5 rounded-full text-sm bg-space-surface border border-space-border text-space-muted hover:text-space-text hover:border-space-cyan/30 transition-all"
-          >
-            {tag}
-          </button>
-        ))}
+      {/* 热门问题卡片 */}
+      <div className="w-full max-w-3xl">
+        <p className="text-center text-sm text-gray-400 mb-4 font-medium">
+          💡 大家都在纠结这些
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {HOT_QUESTIONS.map((q) => (
+            <button
+              key={q.text}
+              onClick={() => setQuery(q.text)}
+              className="group text-left p-5 rounded-2xl bg-white border-2 border-indigo-50 hover:border-indigo-200 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${q.color}15` }}
+                >
+                  <q.icon className="w-4 h-4" style={{ color: q.color }} />
+                </div>
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: `${q.color}15`, color: q.color }}
+                >
+                  {q.label}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 font-medium group-hover:text-gray-800 transition-colors">
+                {q.text}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 底部说明 */}
+      <div className="mt-10 text-center">
+        <p className="text-xs text-gray-400 max-w-md leading-relaxed">
+          基于知乎海量观点构建 · 多 Agent 结构化辩论 · 不给你标准答案，只帮你看到分歧
+        </p>
       </div>
     </div>
   )
