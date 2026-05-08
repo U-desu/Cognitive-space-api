@@ -6,6 +6,9 @@ import type {
   DebateRequest,
   Debate,
   Trajectory,
+  ExternalUser,
+  ExternalQuestion,
+  HotQuestionPreset,
 } from './api-types'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
@@ -27,15 +30,24 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export const api = {
+  // Core / Gateway orchestrated
   createSpace: (req: CreateSpaceRequest) => post<Space>('/spaces', req),
   getSpace: (id: string) => get<Space>(`/spaces/${id}`),
   computeEdges: (id: string) =>
-    post<{ edges: Edge[]; space_stats: SpaceStats }>(
-      `/spaces/${id}/edges`
-    ),
+    post<{ edges: Edge[]; space_stats: SpaceStats }>(`/spaces/${id}/edges`),
   createDebate: (id: string, req: DebateRequest) =>
     post<Debate>(`/spaces/${id}/debates`, req),
   getTrajectory: (id: string) => get<Trajectory>(`/spaces/${id}/trajectory`),
   exportSpace: (id: string, payload: { format: string }) =>
     post<Record<string, unknown>>(`/spaces/${id}/export`, payload),
+
+  // Aggregator (previously frontend mock data)
+  getZhihuUsers: (domain: string) =>
+    get<ExternalUser[]>(`/aggregator/zhihu/users?domain=${encodeURIComponent(domain)}`),
+  getZhihuQuestions: (query: string) =>
+    get<ExternalQuestion[]>(`/aggregator/zhihu/questions?query=${encodeURIComponent(query)}`),
+  getHotQuestions: () =>
+    get<HotQuestionPreset[]>('/aggregator/presets/hot-questions'),
+  getDomainLabels: () =>
+    get<Record<string, string>>('/aggregator/domain-labels'),
 }

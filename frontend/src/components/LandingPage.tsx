@@ -1,36 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Compass, ArrowRight, Briefcase, Code, Heart } from 'lucide-react'
 import { api } from '../api'
 import { useSpaceState } from '../store/SpaceContext'
 import LoadingBunny from './LoadingBunny'
+import type { HotQuestionPreset } from '../api-types'
 
-const HOT_QUESTIONS = [
-  {
-    icon: Briefcase,
-    label: '职业',
-    text: '大厂5年了，该辞职去做AI创业吗？',
-    color: '#60a5fa',
-  },
-  {
-    icon: Code,
-    label: '技术',
-    text: 'AI发展这么快，程序员会被取代吗？',
-    color: '#4ade80',
-  },
-  {
-    icon: Heart,
-    label: '成长',
-    text: '30岁该继续深耕技术还是转管理？',
-    color: '#fb7185',
-  },
-]
+const ICON_MAP: Record<string, React.ElementType> = {
+  briefcase: Briefcase,
+  code: Code,
+  heart: Heart,
+}
 
 export default function LandingPage() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
+  const [hotQuestions, setHotQuestions] = useState<HotQuestionPreset[]>([])
   const navigate = useNavigate()
   const { dispatch } = useSpaceState()
+
+  useEffect(() => {
+    api.getHotQuestions()
+      .then(setHotQuestions)
+      .catch(() => setHotQuestions([]))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,31 +99,34 @@ export default function LandingPage() {
           💡 大家都在纠结这些
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {HOT_QUESTIONS.map((q) => (
-            <button
-              key={q.text}
-              onClick={() => setQuery(q.text)}
-              className="group text-left p-5 rounded-2xl bg-white border-2 border-indigo-50 hover:border-indigo-200 hover:shadow-md transition-all"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${q.color}15` }}
-                >
-                  <q.icon className="w-4 h-4" style={{ color: q.color }} />
+          {hotQuestions.map((q) => {
+            const Icon = ICON_MAP[q.icon_type] || Compass
+            return (
+              <button
+                key={q.text}
+                onClick={() => setQuery(q.text)}
+                className="group text-left p-5 rounded-2xl bg-white border-2 border-indigo-50 hover:border-indigo-200 hover:shadow-md transition-all"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: `${q.color}15` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: q.color }} />
+                  </div>
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: `${q.color}15`, color: q.color }}
+                  >
+                    {q.label}
+                  </span>
                 </div>
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: `${q.color}15`, color: q.color }}
-                >
-                  {q.label}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 font-medium group-hover:text-gray-800 transition-colors">
-                {q.text}
-              </p>
-            </button>
-          ))}
+                <p className="text-sm text-gray-600 font-medium group-hover:text-gray-800 transition-colors">
+                  {q.text}
+                </p>
+              </button>
+            )
+          })}
         </div>
       </div>
 

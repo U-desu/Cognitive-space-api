@@ -117,3 +117,28 @@ export interface TrajectoryPoint {
   action: string
   dwell_time: number
 }
+
+// ── Aggregator types (migrated from frontend mock) ──
+
+export interface ExternalUser {
+  name: string
+  avatar: string
+  title: string
+  followers: string
+  url: string
+  domain: string
+}
+
+export interface ExternalQuestion {
+  title: string
+  url: string
+  views: string
+  domain: string
+}
+
+export interface HotQuestionPreset {
+  icon_type: string
+  label: string
+  text: string
+  color: string
+}

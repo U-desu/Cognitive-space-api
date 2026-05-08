@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
-import type { Edge, Agent, Debate } from '../api-types'
+import type { Edge, Agent, Debate, ExternalUser, ExternalQuestion } from '../api-types'
 
 type PanelPage = 'profile' | 'debate' | 'cluster'
 
@@ -42,97 +42,6 @@ const STANCE_TEXT: Record<string, string> = {
   neutral: '#92400e',
 }
 
-function _matchQueryPreset(query: string): string {
-  const q = query.trim()
-  if (q.includes('程序') || q.includes('取代') || q.includes('失业') || q.includes('替代')) return '程序员取代'
-  if (q.includes('管理') || q.includes('转管理') || q.includes('深耕技术') || q.includes('技术还是管理')) return '技术管理'
-  return '大厂创业'
-}
-
-const PRESET_ZHIHU_QUESTIONS: Record<string, Array<{ title: string; url: string; views: string }>> = {
-  '大厂创业': [
-    { title: '大厂程序员该不该辞职创业？', url: 'https://www.zhihu.com/question/mock001', views: '12.4万' },
-    { title: 'AI创业窗口期还有多久？', url: 'https://www.zhihu.com/question/mock002', views: '8.7万' },
-    { title: '副业验证PMF再全职创业靠谱吗？', url: 'https://www.zhihu.com/question/mock003', views: '5.2万' },
-  ],
-  '程序员取代': [
-    { title: 'AI会取代程序员吗？', url: 'https://www.zhihu.com/question/mock101', views: '28.6万' },
-    { title: '程序员应该如何应对AI冲击？', url: 'https://www.zhihu.com/question/mock102', views: '15.3万' },
-    { title: 'AI编程助手会让程序员失业吗？', url: 'https://www.zhihu.com/question/mock103', views: '9.8万' },
-  ],
-  '技术管理': [
-    { title: '30岁程序员转管理还是继续技术？', url: 'https://www.zhihu.com/question/mock201', views: '21.3万' },
-    { title: '技术深耕和管理路线哪个更有前途？', url: 'https://www.zhihu.com/question/mock202', views: '18.5万' },
-    { title: '35岁程序员如何规划职业发展？', url: 'https://www.zhihu.com/question/mock203', views: '14.2万' },
-  ],
-}
-
-const DOMAIN_LABEL: Record<string, string> = {
-  startup: '创业', enterprise: '企业', investment: '投资', indie: '独立开发',
-  tech: '技术', finance: '金融', research: '研究', product: '产品',
-  engineering: '工程', data: '数据科学', media: '媒体', opensource: '开源',
-  academia: '学术', consulting: '咨询', policy: '政策', crypto: '区块链',
-  security: '安全', cloud: '云架构', devops: 'DevOps', design: '设计',
-  growth: '增长', legal: '法务', hr: '人力资源', marketing: '市场',
-  operations: '运营', supply: '供应链', edtech: '教育科技', healthtech: '健康科技',
-  fintech: '金融科技', env: '环境', sociology: '社会学', psychology: '心理学',
-  philosophy: '哲学', economics: '经济学', history: '历史', futurology: '未来学',
-  scifi: '科幻', journalism: '新闻', gov: '政府',
-}
-
-const MOCK_ZHIHU_USERS: Record<string, Array<{ name: string; avatar: string; title: string; followers: string; url: string }>> = {
-  startup: [
-    { name: '张小龙的产品观', avatar: '🔥', title: '连续创业者，前腾讯产品总监', followers: '23.5万', url: 'https://www.zhihu.com/people/zhangxiaolong' },
-    { name: '李想', avatar: '🚀', title: '理想汽车创始人', followers: '18.2万', url: 'https://www.zhihu.com/people/lixiang' },
-    { name: '粥左罗', avatar: '💡', title: '新媒体专家，创业博主', followers: '31.6万', url: 'https://www.zhihu.com/people/zhouzuoluo' },
-  ],
-  enterprise: [
-    { name: '脱不花', avatar: '🏢', title: '得到APP联合创始人，前湖畔大学产品负责人', followers: '42.3万', url: 'https://www.zhihu.com/people/tuobuhua' },
-    { name: '梁宁', avatar: '📈', title: '产品战略专家，前联想、腾讯产品高管', followers: '38.7万', url: 'https://www.zhihu.com/people/liangning' },
-    { name: '俞军', avatar: '🎯', title: '前百度产品副总裁，产品方法论奠基人', followers: '29.1万', url: 'https://www.zhihu.com/people/yujun' },
-  ],
-  investment: [
-    { name: '朱啸虎', avatar: '💰', title: '金沙江创投合伙人，滴滴、饿了么早期投资人', followers: '35.6万', url: 'https://www.zhihu.com/people/zhuxiaohu' },
-    { name: '张磊', avatar: '📊', title: '高瓴资本创始人，价值投资者', followers: '28.4万', url: 'https://www.zhihu.com/people/zhanglei' },
-    { name: '沈南鹏', avatar: '🦈', title: '红杉中国创始人，投资界教父', followers: '31.2万', url: 'https://www.zhihu.com/people/shennanpeng' },
-  ],
-  data: [
-    { name: '陈丹琦', avatar: '📉', title: '斯坦福博士，NLP领域青年科学家', followers: '15.8万', url: 'https://www.zhihu.com/people/chendanqi' },
-    { name: '李沐', avatar: '🤖', title: 'AWS资深科学家，MXNet作者', followers: '22.3万', url: 'https://www.zhihu.com/people/limu' },
-    { name: '王喆', avatar: '🔢', title: '推荐系统专家，《深度学习推荐系统》作者', followers: '18.7万', url: 'https://www.zhihu.com/people/wangzhe' },
-  ],
-  tech: [
-    { name: '阮一峰', avatar: '💻', title: '技术博主，科技爱好者周刊主编', followers: '68.5万', url: 'https://www.zhihu.com/people/ruanyifeng' },
-    { name: '尤雨溪', avatar: '⚡', title: 'Vue.js 作者，前端框架设计大师', followers: '45.2万', url: 'https://www.zhihu.com/people/youyuxi' },
-    { name: '轮子哥', avatar: '🌀', title: '微软资深工程师，知乎技术大V', followers: '52.1万', url: 'https://www.zhihu.com/people/lunzi' },
-  ],
-  product: [
-    { name: '苏杰', avatar: '📱', title: '《人人都是产品经理》作者', followers: '26.4万', url: 'https://www.zhihu.com/people/sujie' },
-    { name: '刘飞', avatar: '✨', title: '前滴滴产品总监，产品思维布道者', followers: '19.8万', url: 'https://www.zhihu.com/people/liufei' },
-    { name: '唐韧', avatar: '🎨', title: '产品总监，产品设计方法论专家', followers: '14.5万', url: 'https://www.zhihu.com/people/tangren' },
-  ],
-  engineering: [
-    { name: '陈皓', avatar: '⚙️', title: '资深技术专家，左耳朵耗子', followers: '55.3万', url: 'https://www.zhihu.com/people/chenhao' },
-    { name: '冯大辉', avatar: '🔧', title: '前丁香园CTO，技术创业观察者', followers: '33.7万', url: 'https://www.zhihu.com/people/fengdahui' },
-    { name: '阿里多隆', avatar: '🏗️', title: '阿里创始工程师，淘宝早期架构师', followers: '21.6万', url: 'https://www.zhihu.com/people/duolong' },
-  ],
-  finance: [
-    { name: '肖飒', avatar: '⚖️', title: '法学博士，金融科技法律专家', followers: '12.3万', url: 'https://www.zhihu.com/people/xiaosa' },
-    { name: '香帅', avatar: '💎', title: '北大金融系教授，财富报告作者', followers: '27.9万', url: 'https://www.zhihu.com/people/xiangshuai' },
-    { name: '管清友', avatar: '📉', title: '经济学家，如是金融研究院院长', followers: '24.1万', url: 'https://www.zhihu.com/people/guanqingyou' },
-  ],
-  academia: [
-    { name: '李飞飞', avatar: '🧬', title: '斯坦福教授，AI领军人物', followers: '32.4万', url: 'https://www.zhihu.com/people/lifeifei' },
-    { name: '吴恩达', avatar: '🎓', title: 'DeepLearning.AI创始人，斯坦福教授', followers: '41.8万', url: 'https://www.zhihu.com/people/wuenda' },
-    { name: '周志华', avatar: '🔬', title: '南京大学计算机系主任，西瓜书作者', followers: '19.5万', url: 'https://www.zhihu.com/people/zhoushihua' },
-  ],
-  design: [
-    { name: '马力', avatar: '🖌️', title: '知群CEO，产品设计教育专家', followers: '16.7万', url: 'https://www.zhihu.com/people/mali' },
-    { name: '东海', avatar: '🎭', title: '前阿里设计总监，设计系统专家', followers: '11.2万', url: 'https://www.zhihu.com/people/donghai' },
-    { name: 'Rigo', avatar: '🌈', title: '前百度设计总监，用户体验专家', followers: '9.8万', url: 'https://www.zhihu.com/people/rigo' },
-  ],
-}
-
 interface Props {
   agentId: string | null
   onClose: () => void
@@ -145,6 +54,12 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   const [debateLoading, setDebateLoading] = useState(false)
   const [selectedEdgeForDebate, setSelectedEdgeForDebate] = useState<Edge | null>(null)
   const [clusterAgentId, setClusterAgentId] = useState<string | null>(null)
+
+  // External data from aggregator service (previously frontend mock)
+  const [domainLabels, setDomainLabels] = useState<Record<string, string>>({})
+  const [zhihuUsers, setZhihuUsers] = useState<ExternalUser[]>([])
+  const [zhihuQuestions, setZhihuQuestions] = useState<ExternalQuestion[]>([])
+  const [externalDataLoading, setExternalDataLoading] = useState(false)
 
   const space = state.space
   const edges = state.edges
@@ -172,6 +87,11 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     return list
   }, [edges, agentId])
 
+  // Load domain labels once
+  useEffect(() => {
+    api.getDomainLabels().then(setDomainLabels).catch(() => {})
+  }, [])
+
   // Reset page when agent changes
   useEffect(() => {
     setPage('profile')
@@ -197,70 +117,40 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         rounds: 2,
       })
       setDebate(d)
-    } catch {
-      const preset = _matchQueryPreset(space.query)
-      let contentA = '我方认为当前是最佳时机，窗口期有限，应该果断行动。'
-      let contentB = '但风险过高，盲目入场失败率极高，应谨慎行事。'
-      let contentA2 = '我们可以先用副业验证PMF，降低试错成本，而不是直接all in。'
-      let contentB2 = '副业和全职创业的心态完全不同，无法真实验证市场需求。'
-      let conflict = '风险判断的时间尺度不同'
-      let suggestion = '先用副业验证PMF，降低试错成本'
-      let agreements = ['趋势是不可逆的', '需要准备而非冲动']
-      let divergences = ['最佳入场时机', '可接受的风险水平']
-
-      if (preset === '程序员取代') {
-        contentA = 'AI是程序员的超级生产力工具，Copilot已让编码效率提升55%，岗位不会减少只会升级。'
-        contentB = '当AI能自动生成80%的业务代码时，企业需要的人手会指数级下降，初级程序员已面临裁撤。'
-        contentA2 = '历史证明蒸汽机没有消灭工人，Excel没有消灭会计，程序员的核心竞争力是系统思维。'
-        contentB2 = '但AI替代的是认知劳动，当AI能debug、写测试、做code review时，系统思维也保不了你多久。'
-        conflict = '工具增强 vs 岗位替代：AI提升单程序员产出，但是否压缩整体岗位需求？'
-        suggestion = '建议向"AI+领域专家"转型，深耕垂直行业，掌握AI工具链'
-        agreements = ['AI将深刻改变编程工作流', '高阶思维能力越来越重要', '持续学习是生存底线']
-        divergences = ['岗位总量变化', '初级程序员生存空间', '转型窗口期长度']
-      } else if (preset === '技术管理') {
-        contentA = '管理路线是唯一的上升通道，30岁不转管理，35岁就会被P8+管理者领导，天花板触手可及。'
-        contentB = '恰恰因为大家都在转管理，技术深耕才是差异化壁垒。全球顶尖架构师年薪500万+，不受年龄限制。'
-        contentA2 = '管理能力是复利资产，技术能力是折旧资产。管理经验的迁移性远高于特定技术栈。'
-        contentB2 = '管理的迁移性是幻觉，你在A公司的团队方法论在B公司可能完全不适用。系统架构思维才是跨时代能力。'
-        conflict = '深度专精 vs 广度管理：技术路线的不可替代性 vs 管理路线的天花板高度'
-        suggestion = '建议用"T型策略"：30-35岁保持技术深度，同时承担小型项目管理，35岁后根据人格特质做最终选择'
-        agreements = ['30岁是职业分水岭', '需要主动规划而非被动等待', '大厂环境对纯技术路线不友好']
-        divergences = ['天花板定义', '年龄友好度', '个人特质匹配度']
-      }
-
-      const mockDebate: Debate = {
-        debate_id: 'mock_debate',
-        edge_id: edge.edge_id,
-        participants: [edge.source, edge.target],
-        transcript: [
-          {
-            round: 1,
-            turns: [
-              { agent: edge.source, type: 'argument', content: contentA, evidence: [] },
-              { agent: edge.target, type: 'rebuttal', content: contentB, evidence: [] },
-            ],
-          },
-          {
-            round: 2,
-            turns: [
-              { agent: edge.source, type: 'argument', content: contentA2, evidence: [] },
-              { agent: edge.target, type: 'rebuttal', content: contentB2, evidence: [] },
-            ],
-          },
-        ],
-        synthesis: {
-          core_conflict: conflict,
-          resolution_suggestion: suggestion,
-          agreement_points: agreements,
-          divergence_points: divergences,
-        },
-        visualization: {},
-      }
-      setDebate(mockDebate)
+    } catch (err) {
+      console.error('Debate generation failed:', err)
+      // Generator service handles fallback internally;
+      // if we still get an error, show nothing and let user retry
+      setDebate(null)
     } finally {
       setDebateLoading(false)
     }
   }
+
+  async function loadClusterData(domain: string, query: string) {
+    setExternalDataLoading(true)
+    try {
+      const [users, questions] = await Promise.all([
+        api.getZhihuUsers(domain).catch(() => []),
+        api.getZhihuQuestions(query).catch(() => []),
+      ])
+      setZhihuUsers(users)
+      setZhihuQuestions(questions)
+    } finally {
+      setExternalDataLoading(false)
+    }
+  }
+
+  // Load external data when entering cluster page
+  useEffect(() => {
+    if (page === 'cluster' && space) {
+      const clusterAgent = clusterAgentId
+        ? agents.find((a) => a.agent_id === clusterAgentId)
+        : agent
+      const domain = clusterAgent?.domain || 'startup'
+      loadClusterData(domain, space.query)
+    }
+  }, [page, clusterAgentId, agent, space, agents])
 
   if (!agentId || !agent) return null
 
@@ -277,7 +167,15 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         </div>
         {/* Cluster */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'cluster' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <ClusterContent agentDomain={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.domain ?? agent.domain) : agent.domain} agentStance={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.stance ?? agent.stance) : agent.stance} spaceQuery={space?.query ?? ''} onBack={() => setPage('debate')} />
+          <ClusterContent
+            agentDomain={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.domain ?? agent.domain) : agent.domain}
+            agentStance={clusterAgentId ? (agents.find((a) => a.agent_id === clusterAgentId)?.stance ?? agent.stance) : agent.stance}
+            domainLabels={domainLabels}
+            zhihuUsers={zhihuUsers}
+            zhihuQuestions={zhihuQuestions}
+            loading={externalDataLoading}
+            onBack={() => setPage('debate')}
+          />
         </div>
       </div>
     </div>
@@ -465,6 +363,13 @@ function DebateContent({
           </div>
         )}
 
+        {!loading && !debate && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <p className="text-sm text-gray-400 font-bold">辩论生成失败，请重试</p>
+            <button onClick={onBack} className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-500 text-xs font-bold">返回</button>
+          </div>
+        )}
+
         {!loading && debate && (
           <>
             {debate.transcript.map((round, ri) => {
@@ -538,13 +443,25 @@ function DebateContent({
 }
 
 /* ─────────────── Cluster Page ─────────────── */
-function ClusterContent({ agentDomain, agentStance, spaceQuery, onBack }: { agentDomain?: string; agentStance: string; spaceQuery: string; onBack: () => void }) {
-  const domainKey = agentDomain && MOCK_ZHIHU_USERS[agentDomain] ? agentDomain : 'startup'
-  const users = MOCK_ZHIHU_USERS[domainKey]
-  const domainLabel = DOMAIN_LABEL[agentDomain ?? ''] ?? (agentDomain || '未知领域')
+function ClusterContent({
+  agentDomain,
+  agentStance,
+  domainLabels,
+  zhihuUsers,
+  zhihuQuestions,
+  loading,
+  onBack,
+}: {
+  agentDomain?: string
+  agentStance: string
+  domainLabels: Record<string, string>
+  zhihuUsers: ExternalUser[]
+  zhihuQuestions: ExternalQuestion[]
+  loading: boolean
+  onBack: () => void
+}) {
+  const domainLabel = domainLabels[agentDomain ?? ''] ?? (agentDomain || '未知领域')
   const color = agentStance === 'pro' ? '#4ade80' : agentStance === 'con' ? '#fb7185' : '#fbbf24'
-  const preset = _matchQueryPreset(spaceQuery)
-  const questions = PRESET_ZHIHU_QUESTIONS[preset]
 
   return (
     <>
@@ -559,44 +476,54 @@ function ClusterContent({ agentDomain, agentStance, spaceQuery, onBack }: { agen
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-6 scroll-bounce">
-        <div>
-          <p className="text-xs text-gray-400 font-bold mb-3">参考知乎问题</p>
-          <div className="space-y-2">
-            {questions.map((q, i) => (
-              <a key={i} href={q.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-50 hover:bg-white hover:shadow-sm hover:border-indigo-100 transition-all">
-                <ExternalLink className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-700 truncate">{q.title}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{q.views} 浏览 · 知乎</p>
-                </div>
-              </a>
-            ))}
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
           </div>
-        </div>
+        )}
 
-        <div>
-          <p className="text-xs text-gray-400 font-bold mb-3">{domainLabel} · 知乎上的对应用户</p>
-          <div className="space-y-3">
-            {users.map((user, idx) => (
-              <a key={idx} href={user.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-white border border-indigo-50 hover:bg-indigo-50/30 hover:border-indigo-100 transition-all">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ backgroundColor: color + '20' }}>
-                  {user.avatar}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-bold text-gray-800">{user.name}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: color + '20', color }}>
-                      {domainLabel}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{user.title}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">{user.followers} 关注者</p>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-300 shrink-0 mt-2" />
-              </a>
-            ))}
-          </div>
-        </div>
+        {!loading && (
+          <>
+            <div>
+              <p className="text-xs text-gray-400 font-bold mb-3">参考知乎问题</p>
+              <div className="space-y-2">
+                {zhihuQuestions.map((q, i) => (
+                  <a key={i} href={q.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-50 hover:bg-white hover:shadow-sm hover:border-indigo-100 transition-all">
+                    <ExternalLink className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-700 truncate">{q.title}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{q.views} 浏览 · 知乎</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 font-bold mb-3">{domainLabel} · 知乎上的对应用户</p>
+              <div className="space-y-3">
+                {zhihuUsers.map((user, idx) => (
+                  <a key={idx} href={user.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 rounded-xl bg-white border border-indigo-50 hover:bg-indigo-50/30 hover:border-indigo-100 transition-all">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ backgroundColor: color + '20' }}>
+                      {user.avatar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-sm font-bold text-gray-800">{user.name}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: color + '20', color }}>
+                          {domainLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{user.title}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{user.followers} 关注者</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-gray-300 shrink-0 mt-2" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   )

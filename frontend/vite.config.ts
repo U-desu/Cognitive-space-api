@@ -8,6 +8,9 @@ export default defineConfig({
     proxy: {
       '/spaces': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
+      '/aggregator': 'http://localhost:8000',
+      '/generator': 'http://localhost:8000',
+      '/compute': 'http://localhost:8000',
     },
   },
 })
