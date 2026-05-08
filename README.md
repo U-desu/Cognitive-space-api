@@ -357,9 +357,10 @@ cognitive-space-api/
 ## 文档
 
 - [`docs/api-design.md`](docs/api-design.md) — API 完整设计
+- [`docs/compute-module.md`](docs/compute-module.md) — Compute 服务模块说明（配置、公式、依据）
+- [`docs/database-selection.md`](docs/database-selection.md) — 各模块数据库选型方案（PostgreSQL/Redis/MongoDB）
 - [`docs/pitch-script.md`](docs/pitch-script.md) — 5分钟答辩逐句稿
 - [`docs/database-migration-plan.md`](docs/database-migration-plan.md) — PostgreSQL + pgvector 迁移方案（12张表）
-- [`docs/compute-module.md`](docs/compute-module.md) — Compute 服务模块说明（配置、公式、依据）
 
 ---
 
