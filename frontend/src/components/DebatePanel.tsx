@@ -1,29 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { X, MessageSquare, Lightbulb, CheckCircle2 } from 'lucide-react'
 import { useSpaceState } from '../store/SpaceContext'
-import { useDebateStream, type StreamTurn } from '../hooks/useDebateStream'
+import { useDebateStream } from '../hooks/useDebateStream'
+import StreamTurnCard from './StreamTurnCard'
 
 interface Props {
   edgeId: string
   onClose: () => void
-}
-
-/** 三个跳动的小圆点 — "正在输入"指示器 */
-function TypingDots() {
-  return (
-    <span className="inline-flex items-center gap-0.5 ml-1 align-middle">
-      <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
-      <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
-      <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:300ms]" />
-    </span>
-  )
-}
-
-/** 打字光标 — 闪烁竖线 */
-function CursorBlink() {
-  return (
-    <span className="inline-block w-0.5 h-4 ml-0.5 bg-space-cyan animate-pulse align-middle" />
-  )
 }
 
 export default function DebatePanel({ edgeId, onClose }: Props) {
@@ -32,8 +15,6 @@ export default function DebatePanel({ edgeId, onClose }: Props) {
 
   // Track which turns have finished typing
   const [typedTurns, setTypedTurns] = useState<Set<number>>(new Set())
-  const [currentTypingText, setCurrentTypingText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
 
   const agentMap = new Map(spaceState.space?.agents.map((a) => [a.agent_id, a]))
 
@@ -44,37 +25,26 @@ export default function DebatePanel({ edgeId, onClose }: Props) {
     return () => stop()
   }, [edgeId, spaceState.space, start, stop])
 
-  // Typewriter effect for the latest turn
+  // Mark turns as typed once stream moves to the next one
   useEffect(() => {
     const turns = streamState.turns
     if (turns.length === 0) return
-
-    const latestIdx = turns.length - 1
-    if (typedTurns.has(latestIdx)) return
-
-    const fullText = turns[latestIdx].content
-    setIsTyping(true)
-    setCurrentTypingText('')
-
-    let i = 0
-    const tick = () => {
-      i++
-      if (i >= fullText.length) {
-        setCurrentTypingText(fullText)
-        setIsTyping(false)
-        setTypedTurns((prev) => new Set(prev).add(latestIdx))
-        return
-      }
-      setCurrentTypingText(fullText.slice(0, i))
-      const char = fullText[i - 1] ?? ''
-      const isCJK = /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(char)
-      const delay = isCJK ? 26 : 12
-      timer = setTimeout(tick, delay)
+    // All previous turns are done typing
+    const newTyped = new Set(typedTurns)
+    for (let i = 0; i < turns.length - 1; i++) {
+      newTyped.add(i)
     }
-
-    let timer = setTimeout(tick, 300)
-    return () => clearTimeout(timer)
-  }, [streamState.turns.length, typedTurns])
+    // Latest turn: auto-mark as typed after a generous delay
+    const latestIdx = turns.length - 1
+    if (!newTyped.has(latestIdx)) {
+      const delay = Math.min(turns[latestIdx].content.length * 30 + 1000, 8000)
+      const timer = setTimeout(() => {
+        setTypedTurns((prev) => new Set(prev).add(latestIdx))
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+    setTypedTurns(newTyped)
+  }, [streamState.turns, typedTurns])
 
   // On stream complete, save debate to global state
   useEffect(() => {
@@ -94,43 +64,10 @@ export default function DebatePanel({ edgeId, onClose }: Props) {
   }, [streamState.done, dispatch])
 
   // Determine if a turn is the first of its round
-  const isFirstOfRound = useCallback((turns: StreamTurn[], idx: number) => {
+  const isFirstOfRound = useCallback((turns: typeof streamState.turns, idx: number) => {
     if (idx === 0) return true
     return turns[idx].round !== turns[idx - 1].round
   }, [])
-
-  // Render a single turn card
-  const renderTurnCard = (turn: StreamTurn, text: string, typing: boolean) => {
-    const agent = agentMap.get(turn.agent)
-    const isPro = agent?.stance === 'pro'
-    return (
-      <div
-        className={`p-4 rounded-2xl border-2 transition-all duration-500 ${
-          isPro
-            ? 'border-green-100 bg-green-50'
-            : 'border-rose-100 bg-rose-50'
-        }`}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <span
-            className={`text-xs font-bold px-3 py-1 rounded-full ${
-              isPro ? 'bg-green-200 text-green-700' : 'bg-rose-200 text-rose-700'
-            }`}
-          >
-            {agent?.name ?? turn.agent}
-          </span>
-          <span className="text-xs text-space-muted capitalize">
-            {turn.type}
-          </span>
-          {typing && <TypingDots />}
-        </div>
-        <p className="text-sm text-space-text leading-relaxed whitespace-pre-wrap">
-          {text}
-          {typing && <CursorBlink />}
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white border-l border-space-border shadow-2xl z-50 flex flex-col">
@@ -163,8 +100,7 @@ export default function DebatePanel({ edgeId, onClose }: Props) {
         {/* Turns */}
         {streamState.turns.map((turn, idx) => {
           const isLatest = idx === streamState.turns.length - 1
-          const isTypingThis = isLatest && isTyping && !typedTurns.has(idx)
-          const displayText = isTypingThis ? currentTypingText : turn.content
+          const isTypingThis = isLatest && !typedTurns.has(idx)
 
           return (
             <div key={`${turn.round}-${turn.agent}-${idx}`} className="space-y-4">
@@ -173,7 +109,11 @@ export default function DebatePanel({ edgeId, onClose }: Props) {
                   Round {turn.round}
                 </div>
               )}
-              {renderTurnCard(turn, displayText, isTypingThis)}
+              <StreamTurnCard
+                turn={turn}
+                agent={agentMap.get(turn.agent)}
+                isTyping={isTypingThis}
+              />
             </div>
           )
         })}

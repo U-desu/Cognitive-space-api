@@ -14,7 +14,9 @@ import {
 } from 'lucide-react'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
-import type { Edge, Agent, Debate, ExternalUser, ExternalQuestion } from '../api-types'
+import { useDebateStream } from '../hooks/useDebateStream'
+import StreamTurnCard from './StreamTurnCard'
+import type { Edge, Agent, ExternalUser, ExternalQuestion } from '../api-types'
 
 type PanelPage = 'profile' | 'debate' | 'cluster'
 
@@ -50,12 +52,13 @@ interface Props {
 export default function AgentPanel({ agentId, onClose }: Props) {
   const { state } = useSpaceState()
   const [page, setPage] = useState<PanelPage>('profile')
-  const [debate, setDebate] = useState<Debate | null>(null)
-  const [debateLoading, setDebateLoading] = useState(false)
   const [selectedEdgeForDebate, setSelectedEdgeForDebate] = useState<Edge | null>(null)
   const [clusterAgentId, setClusterAgentId] = useState<string | null>(null)
 
-  // External data from aggregator service (previously frontend mock)
+  // SSE stream state — shared by both entry points
+  const { state: streamState, start, stop } = useDebateStream()
+
+  // External data from aggregator service
   const [domainLabels, setDomainLabels] = useState<Record<string, string>>({})
   const [zhihuUsers, setZhihuUsers] = useState<ExternalUser[]>([])
   const [zhihuQuestions, setZhihuQuestions] = useState<ExternalQuestion[]>([])
@@ -95,36 +98,28 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   // Reset page when agent changes
   useEffect(() => {
     setPage('profile')
-    setDebate(null)
-    setDebateLoading(false)
+    setSelectedEdgeForDebate(null)
     setClusterAgentId(null)
-  }, [agentId])
+    stop()
+  }, [agentId, stop])
+
+  // Stop stream when leaving debate page
+  useEffect(() => {
+    if (page !== 'debate') {
+      stop()
+    }
+  }, [page, stop])
 
   function getOpponent(edge: Edge): Agent | null {
     const id = edge.source === agentId ? edge.target : edge.source
     return agents.find((a) => a.agent_id === id) ?? null
   }
 
-  async function handleDebate(edge: Edge) {
+  function handleDebate(edge: Edge) {
     if (!space) return
     setSelectedEdgeForDebate(edge)
-    setDebateLoading(true)
     setPage('debate')
-    try {
-      const d = await api.createDebate(space.space_id, {
-        edge_id: edge.edge_id,
-        format: 'structured',
-        rounds: 2,
-      })
-      setDebate(d)
-    } catch (err) {
-      console.error('Debate generation failed:', err)
-      // Generator service handles fallback internally;
-      // if we still get an error, show nothing and let user retry
-      setDebate(null)
-    } finally {
-      setDebateLoading(false)
-    }
+    start(space.space_id, edge.edge_id, 2)
   }
 
   async function loadClusterData(domain: string, query: string) {
@@ -163,7 +158,13 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         </div>
         {/* Debate */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'debate' ? 'translate-x-0' : page === 'profile' ? 'translate-x-full' : '-translate-x-full'}`}>
-          <DebateContent debate={debate} loading={debateLoading} agents={agents} selectedEdge={selectedEdgeForDebate} onBack={() => setPage('profile')} onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }} />
+          <DebateContent
+            streamState={streamState}
+            agents={agents}
+            selectedEdge={selectedEdgeForDebate}
+            onBack={() => setPage('profile')}
+            onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
+          />
         </div>
         {/* Cluster */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'cluster' ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -282,46 +283,47 @@ function ProfileContent({
 
 /* ─────────────── Debate Page ─────────────── */
 function DebateContent({
-  debate,
-  loading,
+  streamState,
   agents,
   selectedEdge,
   onBack,
   onCluster,
 }: {
-  debate: Debate | null
-  loading: boolean
+  streamState: ReturnType<typeof useDebateStream>['state']
   agents: Agent[]
   selectedEdge: Edge | null
   onBack: () => void
   onCluster: (agentId: string) => void
 }) {
-  const [visibleTurns, setVisibleTurns] = useState(0)
-  const [showSynthesis, setShowSynthesis] = useState(false)
+  const [typedTurns, setTypedTurns] = useState<Set<number>>(new Set())
+  const agentMap = new Map(agents.map((a) => [a.agent_id, a]))
 
+  // Mark previous turns as fully typed; latest gets typing effect then auto-marked
   useEffect(() => {
-    if (!debate || loading) {
-      setVisibleTurns(0)
-      setShowSynthesis(false)
-      return
+    const turns = streamState.turns
+    if (turns.length === 0) return
+    const newTyped = new Set(typedTurns)
+    for (let i = 0; i < turns.length - 1; i++) {
+      newTyped.add(i)
     }
-    const totalTurns = debate.transcript.reduce((s, r) => s + r.turns.length, 0)
-    let current = 0
-    const interval = setInterval(() => {
-      if (current < totalTurns) {
-        setVisibleTurns((prev) => prev + 1)
-        current++
-      } else {
-        clearInterval(interval)
-        setTimeout(() => setShowSynthesis(true), 600)
-      }
-    }, 900)
-    return () => clearInterval(interval)
-  }, [debate, loading])
+    const latestIdx = turns.length - 1
+    if (!newTyped.has(latestIdx)) {
+      const delay = Math.min(turns[latestIdx].content.length * 30 + 1000, 8000)
+      const timer = setTimeout(() => {
+        setTypedTurns((prev) => new Set(prev).add(latestIdx))
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+    setTypedTurns(newTyped)
+  }, [streamState.turns, typedTurns])
 
   const participants = selectedEdge
     ? [agents.find((a) => a.agent_id === selectedEdge.source), agents.find((a) => a.agent_id === selectedEdge.target)].filter(Boolean) as Agent[]
     : agents.slice(0, 2)
+
+  const loading = streamState.loading && streamState.turns.length === 0
+  const hasError = !!streamState.error
+  const hasContent = streamState.turns.length > 0 || streamState.synthesis
 
   return (
     <>
@@ -336,7 +338,8 @@ function DebateContent({
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-5 scroll-bounce">
-        {!loading && debate && (
+        {/* Participants header */}
+        {!loading && hasContent && (
           <div className="pb-3 border-b border-indigo-50">
             <p className="text-[10px] text-gray-400 font-bold mb-2">参与辩论的角色</p>
             <div className="flex items-center gap-3">
@@ -356,6 +359,7 @@ function DebateContent({
           </div>
         )}
 
+        {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
@@ -363,81 +367,72 @@ function DebateContent({
           </div>
         )}
 
-        {!loading && !debate && (
+        {/* Error */}
+        {hasError && !hasContent && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <p className="text-sm text-gray-400 font-bold">辩论生成失败，请重试</p>
             <button onClick={onBack} className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-500 text-xs font-bold">返回</button>
           </div>
         )}
 
-        {!loading && debate && (
-          <>
-            {debate.transcript.map((round, ri) => {
-              let turnStart = 0
-              for (let i = 0; i < ri; i++) turnStart += debate.transcript[i].turns.length
-              const roundVisible = visibleTurns > turnStart
-              if (!roundVisible) return null
+        {/* Turns */}
+        {streamState.turns.length > 0 && (
+          <div className="space-y-4">
+            {streamState.turns.map((turn, idx) => {
+              const isLatest = idx === streamState.turns.length - 1
+              const isTypingThis = isLatest && !typedTurns.has(idx)
+              const isFirstOfRound = idx === 0 || streamState.turns[idx].round !== streamState.turns[idx - 1].round
 
               return (
-                <div key={ri} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Round {round.round}</span>
-                    <div className="flex-1 h-px bg-indigo-50" />
-                  </div>
-                  {round.turns.map((turn, ti) => {
-                    const globalIdx = turnStart + ti
-                    if (globalIdx >= visibleTurns) return null
-                    const speaker = agents.find((a) => a.agent_id === turn.agent)
-                    const isPro = speaker?.stance === 'pro'
-                    return (
-                      <div key={ti} className={`p-3 rounded-xl border-2 ${isPro ? 'border-green-100 bg-green-50' : 'border-rose-100 bg-rose-50'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPro ? 'bg-green-200 text-green-700' : 'bg-rose-200 text-rose-700'}`}>
-                            {speaker?.name ?? turn.agent}
-                          </span>
-                          <span className="text-[10px] text-gray-400 capitalize">{turn.type}</span>
-                        </div>
-                        <p className="text-xs text-gray-700 leading-relaxed">{turn.content}</p>
-                      </div>
-                    )
-                  })}
+                <div key={`${turn.round}-${turn.agent}-${idx}`} className="space-y-3">
+                  {isFirstOfRound && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Round {turn.round}</span>
+                      <div className="flex-1 h-px bg-indigo-50" />
+                    </div>
+                  )}
+                  <StreamTurnCard
+                    turn={turn}
+                    agent={agentMap.get(turn.agent)}
+                    isTyping={isTypingThis}
+                  />
                 </div>
               )
             })}
+          </div>
+        )}
 
-            {showSynthesis && debate.synthesis && (
-              <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-rose-400" />
-                  <span className="text-xs font-extrabold text-gray-700">核心冲突</span>
+        {/* Synthesis */}
+        {streamState.synthesis && (
+          <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-rose-400" />
+              <span className="text-xs font-extrabold text-gray-700">核心冲突</span>
+            </div>
+            <p className="text-xs text-gray-700 bg-white rounded-xl p-3 border border-indigo-50">{streamState.synthesis.core_conflict}</p>
+
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-extrabold text-gray-700">给你的建议</span>
+            </div>
+            <p className="text-xs text-indigo-600 font-bold bg-indigo-50 rounded-xl p-3 border border-indigo-100">{streamState.synthesis.resolution_suggestion}</p>
+
+            {streamState.synthesis.agreement_points.length > 0 && (
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 mb-1.5">双方共识</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {streamState.synthesis.agreement_points.map((pt, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-100 text-green-600 border border-green-200 font-bold">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {pt}
+                    </span>
+                  ))}
                 </div>
-                <p className="text-xs text-gray-700 bg-white rounded-xl p-3 border border-indigo-50">{debate.synthesis.core_conflict}</p>
-
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-extrabold text-gray-700">给你的建议</span>
-                </div>
-                <p className="text-xs text-indigo-600 font-bold bg-indigo-50 rounded-xl p-3 border border-indigo-100">{debate.synthesis.resolution_suggestion}</p>
-
-                {debate.synthesis.agreement_points.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-400 mb-1.5">双方共识</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {debate.synthesis.agreement_points.map((pt, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-100 text-green-600 border border-green-200 font-bold">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {pt}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
-
     </>
   )
 }
