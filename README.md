@@ -15,6 +15,54 @@
 
 ---
 
+## 用户行为路径
+
+```
+用户输入问题
+    │
+    ▼
+Gateway ──► Generator (生成 Agents) ──► Core (存储 Space)
+    │
+    ▼
+前端展示 Space（全局视图）
+    │
+    ▼
+Gateway ──► Compute (计算 Edges)
+    │         ├── 调用 embedder 计算语义向量（local/openai/mock）
+    │         └── 计算 cosine distance + 阈值分类
+    │
+    ▼
+Core (存储 Edges)
+    │
+    ▼
+用户点击 Agent，查看冲突排行榜
+    │
+    ▼
+用户触发辩论
+    │
+    ▼
+Gateway ──► Generator (生成 Debate) ──► Core (存储 Debate)
+    │
+    ▼
+Gateway ──► Core (记录 Trajectory Action)
+    │
+    ▼
+Gateway ──► Compute (计算 Metrics)
+    │
+    ▼
+Core (更新 Trajectory)
+    │
+    ▼
+前端展示 Synthesis + Metrics
+```
+
+**关键说明**：
+- Generator 被调用 **2 次**（生成 Agents、生成 Debate），不是循环调用
+- Compute 被调用 **2 次**（计算 Edges、计算 Metrics），相互独立
+- Compute 计算 Edges 时**自己计算 embedding**，不再依赖 Generator 的 mock 数据
+
+---
+
 ## 系统架构
 
 ```
@@ -114,6 +162,7 @@ cd frontend && npm install
 ```bash
 cp .env.example .env
 # 编辑 .env，设置 OPENAI_API_KEY 或 MOCK_LLM=true
+# 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（mock/local/openai）
 ```
 
 ### 3. 启动服务
@@ -135,7 +184,18 @@ cd frontend && npm run dev
 
 访问 http://localhost:5173 即可使用。
 
-### 4. 验证服务
+### 4. 停止服务
+
+```bash
+# 停止所有后端服务
+pkill -f 'uvicorn services'
+
+# 停止前端（如果在终端运行，按 Ctrl+C）
+# 或查找并终止 node 进程
+pkill -f 'vite'
+```
+
+### 5. 验证服务
 
 ```bash
 curl http://localhost:8000/health
@@ -145,7 +205,7 @@ curl http://localhost:8003/health
 curl http://localhost:8004/health
 ```
 
-### 5. API 调用示例
+### 6. API 调用示例
 
 ```bash
 # 创建认知空间（Gateway 编排：Generator 生成 Agent → Core 存储）
@@ -231,6 +291,7 @@ cognitive-space-api/
 │
 ├── docs/
 │   ├── api-design.md            # API 完整设计
+│   ├── compute-module.md        # Compute 服务模块说明（配置、公式、依据）
 │   ├── pitch-script.md          # 5分钟答辩逐句稿
 │   └── database-migration-plan.md # 数据库迁移方案（12张表）
 │
@@ -278,11 +339,27 @@ cognitive-space-api/
 
 ---
 
+## 环境变量说明
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `OPENAI_API_KEY` | - | OpenAI API 密钥 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API 基础地址 |
+| `MODEL_NAME` | `gpt-4o-mini` | LLM 模型名称 |
+| `EMBED_MODEL` | `text-embedding-3-small` | Embedding 模型名称 |
+| `MOCK_LLM` | `false` | 是否使用 mock LLM（无 API key 时设为 true） |
+| `COMPUTE_EMBED_BACKEND` | `mock` | Compute embedding 后端：`mock` / `local` / `openai` |
+| `COMPUTE_LOCAL_MODEL` | `all-MiniLM-L6-v2` | Local 后端模型名称 |
+| `COMPUTE_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI 后端模型名称 |
+
+---
+
 ## 文档
 
 - [`docs/api-design.md`](docs/api-design.md) — API 完整设计
 - [`docs/pitch-script.md`](docs/pitch-script.md) — 5分钟答辩逐句稿
 - [`docs/database-migration-plan.md`](docs/database-migration-plan.md) — PostgreSQL + pgvector 迁移方案（12张表）
+- [`docs/compute-module.md`](docs/compute-module.md) — Compute 服务模块说明（配置、公式、依据）
 
 ---
 
