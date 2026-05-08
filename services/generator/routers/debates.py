@@ -1,12 +1,11 @@
-"""Generator Service: Debate generation."""
+"""Generator Service: Debate generation via LangChain structured output."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from services.shared.models import (
     Debate, DebateRequest, Round, Turn, Synthesis,
     GenerateDebateRequest,
 )
-from services.generator import llm_client
-import json
+from services.generator.llm_chain import build_structured_chain, DebateOutput
 import uuid
 
 router = APIRouter(prefix="/generator/debates", tags=["generator-debates"])
@@ -22,14 +21,15 @@ SYSTEM_PROMPT = """你是一位结构化辩论主持人。请根据两位专家�
    - agreement_points: 双方共识点列表
    - divergence_points: 双方分歧点列表
 
-输出格式必须为 JSON，包含：
-- transcript: 数组，每个元素包含 round（轮次编号）和 turns（发言列表）
-- synthesis: 对象
+注意：
+- 辩论内容要具体、有深度，避免空洞的泛泛而谈
+- 输出必须符合指定的 JSON 格式
+- 每个 turn 的 agent 字段必须是传入的 agent_id（如 agent_001），不要用 speaker 等其他字段名"""
 
-注意：辩论内容要具体、有深度，避免空洞的泛泛而谈。"""
+_debate_chain = build_structured_chain(DebateOutput, SYSTEM_PROMPT, temperature=0.7)
 
 
-def _build_prompt(agent_a, agent_b, edge, request: DebateRequest) -> str:
+def _build_input(agent_a, agent_b, edge, request: DebateRequest) -> str:
     focus = ""
     if request.focus_axes:
         focus = f"\n请特别围绕以下分歧轴展开辩论：{', '.join(request.focus_axes)}"
@@ -56,31 +56,34 @@ def generate_debate(request: GenerateDebateRequest):
     edge = request.edge
     debate_request = request.debate_request
 
-    prompt = _build_prompt(agent_a, agent_b, edge, debate_request)
+    input_text = _build_input(agent_a, agent_b, edge, debate_request)
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
+    result = _debate_chain.invoke({"input": input_text})
+
+    transcript = [
+        Round(
+            round=r.round,
+            turns=[
+                Turn(agent=t.agent, type=t.type, content=t.content, evidence=t.evidence)
+                for t in r.turns
+            ],
+        )
+        for r in result.transcript
     ]
 
-    raw = llm_client.chat_completion(messages, json_mode=True)
-    data = json.loads(raw)
-
-    transcript_raw = data.get("transcript", [])
-    synthesis_raw = data.get("synthesis", {})
-
-    rounds = []
-    for r in transcript_raw:
-        turns = [Turn(**t) for t in r.get("turns", [])]
-        rounds.append(Round(round=r.get("round", 0), turns=turns))
-
-    synthesis = Synthesis(**synthesis_raw)
+    synthesis = Synthesis(
+        core_conflict=result.synthesis.core_conflict,
+        resolution_suggestion=result.synthesis.resolution_suggestion,
+        agreement_points=result.synthesis.agreement_points,
+        divergence_points=result.synthesis.divergence_points,
+    )
 
     return Debate(
         debate_id=f"debate_{uuid.uuid4().hex[:8]}",
+        space_id=request.space_id,
         edge_id=edge.edge_id,
         participants=[agent_a.agent_id, agent_b.agent_id],
-        transcript=rounds,
+        transcript=transcript,
         synthesis=synthesis,
         visualization={},
     )
@@ -89,5 +92,6 @@ def generate_debate(request: GenerateDebateRequest):
 @router.post("/fallback")
 def fallback_debate():
     """Return fallback debate when LLM is unavailable."""
-    fb = llm_client._fallback_debate()
+    from services.generator import mock_data
+    fb = mock_data.FALLBACK_DEBATES["default"]
     return fb

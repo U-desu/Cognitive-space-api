@@ -283,7 +283,7 @@ def save_debate(debate: Debate) -> None:
             rd["turns"] = [t.model_dump() for t in r.turns]
             transcript.append(rd)
         data = {
-            "space_id": debate.debate_id.split("_")[1] if "_" in debate.debate_id else "",
+            "space_id": debate.space_id,
             "edge_id": debate.edge_id,
             "participants": debate.participants,
             "transcript": transcript,

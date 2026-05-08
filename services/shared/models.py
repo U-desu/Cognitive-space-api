@@ -133,6 +133,7 @@ class DebateRequest(BaseModel):
 
 class Debate(BaseModel):
     debate_id: str
+    space_id: str = ""      # populated by gateway after generation
     edge_id: str
     participants: list[str]
     transcript: list[Round]
