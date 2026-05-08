@@ -81,7 +81,7 @@ Core (更新 Trajectory)
 
 | 服务 | 端口 | 职责 | 数据类型 | 未来数据库 |
 |------|------|------|----------|-----------|
-| **Gateway** | 8000 | 统一入口、路由转发、**业务编排** | 无状态 | 无 |
+| **Gateway** | 8000 | 统一入口、路由转发、**业务编排**、**认证** | 无状态 | 无 |
 | **Core** | 8001 | Space/Agent/Edge/Debate/Trajectory 存储 | 结构化业务数据 | PostgreSQL |
 | **Generator** | 8002 | Agent生成、Debate生成、Embedding | LLM 生成内容 | Redis |
 | **Compute** | 8003 | Edge冲突计算、Metrics计算 | 纯算法计算，无持久化 | 无 |
@@ -161,11 +161,37 @@ cd frontend && npm install
 
 ```bash
 cp .env.example .env
-# 编辑 .env，设置 OPENAI_API_KEY 或 MOCK_LLM=true
-# 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（mock/local/openai）
+# 编辑 .env：
+# - 设置 OPENAI_API_KEY 或 MOCK_LLM=true
+# - 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（mock/local/openai）
+# - 设置 JWT_SECRET_KEY（生产环境必须修改默认值）
+# - 可选：设置 GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET 启用 GitHub 登录
 ```
 
-### 3. 启动服务
+### 3. 数据库（可选，默认内存模式）
+
+系统支持两种存储模式：
+- **内存模式**（默认 `USE_DB=false`）：零依赖，重启数据丢失，适合演示
+- **PostgreSQL 模式**（`USE_DB=true`）：数据持久化，适合开发/生产
+
+```bash
+# macOS 安装 PostgreSQL + pgvector
+brew install postgresql@15
+brew services start postgresql@15
+
+# 创建数据库
+createdb cognitive_space
+
+# 初始化表结构
+export USE_DB=true
+export DATABASE_URL="postgresql://localhost:5432/cognitive_space"
+python3 scripts/init_db.py
+
+# 停止 PostgreSQL
+brew services stop postgresql@15
+```
+
+### 4. 启动服务
 
 ```bash
 # 一键启动所有后端服务
@@ -184,7 +210,7 @@ cd frontend && npm run dev
 
 访问 http://localhost:5173 即可使用。
 
-### 4. 停止服务
+### 5. 停止服务
 
 ```bash
 # 停止所有后端服务
@@ -193,9 +219,12 @@ pkill -f 'uvicorn services'
 # 停止前端（如果在终端运行，按 Ctrl+C）
 # 或查找并终止 node 进程
 pkill -f 'vite'
+
+# 停止 PostgreSQL（如已启用）
+brew services stop postgresql@15
 ```
 
-### 5. 验证服务
+### 6. 验证服务
 
 ```bash
 curl http://localhost:8000/health
@@ -205,7 +234,7 @@ curl http://localhost:8003/health
 curl http://localhost:8004/health
 ```
 
-### 6. API 调用示例
+### 7. API 调用示例
 
 ```bash
 # 创建认知空间（Gateway 编排：Generator 生成 Agent → Core 存储）
@@ -223,6 +252,16 @@ curl -X POST http://localhost:8000/spaces/{space_id}/debates \
 
 # 获取认知轨迹（Gateway 编排：Core 读轨迹 → Compute 计算指标）
 curl http://localhost:8000/spaces/{space_id}/trajectory
+
+# 认证示例
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","password":"123456"}' \
+  -c cookies.txt
+
+curl http://localhost:8000/auth/me -b cookies.txt
+
+curl -X POST http://localhost:8000/auth/logout -b cookies.txt
 
 # 获取外部数据（Aggregator）
 curl "http://localhost:8000/aggregator/zhihu/users?domain=startup"
@@ -259,7 +298,13 @@ cognitive-space-api/
 │   │   └── config.py            # 服务发现和 LLM 配置
 │   │
 │   ├── gateway/                 # API 网关 (port 8000)
-│   │   └── main.py              # 路由转发 + 业务编排
+│   │   ├── auth/                # 认证模块（JWT / OAuth / 密码）
+│   │   │   ├── jwt.py
+│   │   │   ├── password_auth.py
+│   │   │   ├── github_oauth.py
+│   │   │   └── store.py
+│   │   ├── dependencies.py      # get_current_user / require_user
+│   │   └── main.py              # 路由转发 + 业务编排 + 认证路由
 │   │
 │   ├── core/                    # 业务数据服务 (port 8001)
 │   │   ├── store.py             # 内存存储（未来替换为 DB）
@@ -281,8 +326,12 @@ cognitive-space-api/
 │
 ├── frontend/                    # React + TypeScript + Vite
 │   ├── src/
-│   │   ├── api.ts               # API 客户端（调用 Gateway）
+│   │   ├── api.ts               # API 客户端（调用 Gateway，自动携带 Cookie）
 │   │   ├── api-types.ts         # TypeScript 类型定义
+│   │   ├── auth/                # 认证相关组件
+│   │   │   ├── AuthContext.tsx  # 全局认证状态
+│   │   │   ├── AuthModal.tsx    # 登录/注册弹窗
+│   │   │   └── useAuth.ts       # 认证 Hook
 │   │   └── components/          # React 组件
 │   └── vite.config.ts           # 代理配置指向 Gateway
 │
@@ -351,14 +400,22 @@ cognitive-space-api/
 | `COMPUTE_EMBED_BACKEND` | `mock` | Compute embedding 后端：`mock` / `local` / `openai` |
 | `COMPUTE_LOCAL_MODEL` | `all-MiniLM-L6-v2` | Local 后端模型名称 |
 | `COMPUTE_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI 后端模型名称 |
+| `JWT_SECRET_KEY` | `dev-secret-change-in-production` | JWT 签名密钥（**生产必须修改**） |
+| `JWT_ALGORITHM` | `HS256` | JWT 算法 |
+| `JWT_EXPIRE_MINUTES` | `10080` | Token 过期时间（默认 7 天） |
+| `GITHUB_CLIENT_ID` | - | GitHub OAuth App Client ID（可选） |
+| `GITHUB_CLIENT_SECRET` | - | GitHub OAuth App Client Secret（可选） |
+| `GITHUB_REDIRECT_URI` | `http://localhost:8000/auth/github/callback` | GitHub 回调地址 |
 
 ---
 
 ## 文档
 
 - [`docs/api-design.md`](docs/api-design.md) — API 完整设计
+- [`docs/auth.md`](docs/auth.md) — 认证系统设计（JWT / OAuth / 密码 / 访客兼容）
 - [`docs/compute-module.md`](docs/compute-module.md) — Compute 服务模块说明（配置、公式、依据）
-- [`docs/database-selection.md`](docs/database-selection.md) — 各模块数据库选型方案（PostgreSQL/Redis/MongoDB）
+- [`docs/database.md`](docs/database.md) — 数据库设计文档（Schema/表结构/配置方式）
+- [`docs/database-selection.md`](docs/database-selection.md) — 数据库选型分析（PostgreSQL vs MySQL vs MongoDB）
 - [`docs/pitch-script.md`](docs/pitch-script.md) — 5分钟答辩逐句稿
 - [`docs/database-migration-plan.md`](docs/database-migration-plan.md) — PostgreSQL + pgvector 迁移方案（12张表）
 

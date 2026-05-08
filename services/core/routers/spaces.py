@@ -36,3 +36,10 @@ def get_space(space_id: str):
 @router.get("", response_model=list[Space])
 def list_spaces():
     return store.list_spaces()
+
+
+@router.get("/my/{user_id}", response_model=list[Space])
+def get_my_spaces(user_id: str):
+    """Get spaces associated with a user."""
+    space_ids = store.get_user_spaces(user_id)
+    return [store.get_space(sid) for sid in space_ids if store.get_space(sid)]

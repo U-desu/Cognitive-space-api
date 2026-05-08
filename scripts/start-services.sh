@@ -7,6 +7,15 @@ cd "$(dirname "$0")/.."
 
 echo "Starting Cognitive Space microservices..."
 
+# Initialize database if USE_DB is enabled
+if [ "$USE_DB" = "true" ]; then
+    echo "Initializing PostgreSQL database..."
+    python3 scripts/init_db.py
+    if [ $? -ne 0 ]; then
+        echo "WARNING: Database initialization failed. Services may not work correctly."
+    fi
+fi
+
 # Kill any existing services
 pkill -f 'uvicorn services' 2>/dev/null
 

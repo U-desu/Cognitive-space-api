@@ -6,11 +6,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/spaces': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
-      '/aggregator': 'http://localhost:8000',
-      '/generator': 'http://localhost:8000',
-      '/compute': 'http://localhost:8000',
+      '/spaces': { target: 'http://localhost:8000', changeOrigin: true },
+      '/auth': { target: 'http://localhost:8000', changeOrigin: true },
+      '/health': { target: 'http://localhost:8000', changeOrigin: true },
+      '/aggregator': { target: 'http://localhost:8000', changeOrigin: true },
+      '/generator': { target: 'http://localhost:8000', changeOrigin: true },
+      '/compute': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
 })

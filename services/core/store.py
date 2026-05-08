@@ -1,93 +1,28 @@
-"""In-memory store for Core Service.
+"""Core Service store dispatcher.
 
-Design note: This module is intentionally isolated.
-When migrating to PostgreSQL, replace this file with SQLAlchemy models + session.
-Each data type maps to a different DB strategy:
-- Space/Agent/Edge/Debate: relational tables with FKs
-- Trajectory: time-series friendly (could be JSONB or separate table)
+Switches between memory and PostgreSQL backends via USE_DB env var.
+All routers import from this module — no code changes needed when switching.
 """
 
-from typing import Dict, Optional
-from services.shared.models import Space, Edge, Debate, Trajectory
+from services.shared.db_config import USE_DB
 
-_spaces: Dict[str, Space] = {}
-_edges: Dict[str, list[Edge]] = {}
-_debates: Dict[str, Debate] = {}
-_trajectories: Dict[str, Trajectory] = {}
-
-
-# ── Space ──
-
-def save_space(space: Space) -> None:
-    _spaces[space.space_id] = space
-
-
-def get_space(space_id: str) -> Optional[Space]:
-    return _spaces.get(space_id)
-
-
-def list_spaces() -> list[Space]:
-    return list(_spaces.values())
-
-
-# ── Edge ──
-
-def save_edges(space_id: str, edges: list[Edge]) -> None:
-    _edges[space_id] = edges
-
-
-def get_edges(space_id: str) -> list[Edge]:
-    return _edges.get(space_id, [])
-
-
-def get_edge(space_id: str, edge_id: str) -> Optional[Edge]:
-    for edge in get_edges(space_id):
-        if edge.edge_id == edge_id:
-            return edge
-    return None
-
-
-def update_edge(space_id: str, edge: Edge) -> None:
-    edges = _edges.get(space_id, [])
-    for i, e in enumerate(edges):
-        if e.edge_id == edge.edge_id:
-            edges[i] = edge
-            break
-
-
-# ── Debate ──
-
-def save_debate(debate: Debate) -> None:
-    _debates[debate.debate_id] = debate
-
-
-def get_debate(debate_id: str) -> Optional[Debate]:
-    return _debates.get(debate_id)
-
-
-def get_debates_by_edge(edge_id: str) -> list[Debate]:
-    return [d for d in _debates.values() if d.edge_id == edge_id]
-
-
-# ── Trajectory ──
-
-def get_or_create_trajectory(space_id: str) -> Trajectory:
-    if space_id not in _trajectories:
-        _trajectories[space_id] = Trajectory(
-            trajectory_id=f"traj_{space_id}",
-            space_id=space_id,
-            path=[],
-            cognitive_metrics={
-                "coverage_area": 0.18,
-                "depth_score": 0.12,
-                "breadth_score": 0.25,
-                "conflict_engagement": 0.10,
-            },
-            journey_stage="exploration",
-            suggested_next={"action": "view_agent", "reason": "开始探索不同专家视角"},
-        )
-    return _trajectories[space_id]
-
-
-def save_trajectory(trajectory: Trajectory) -> None:
-    _trajectories[trajectory.space_id] = trajectory
+if USE_DB:
+    from services.core.db_store import (
+        save_space, get_space, list_spaces,
+        save_edges, get_edges, get_edge, update_edge,
+        save_debate, get_debate, get_debates_by_edge,
+        get_or_create_trajectory, save_trajectory,
+        create_user, get_user, get_user_by_username, get_user_by_oauth,
+        save_password, get_password_hash, link_oauth,
+        link_space_to_user, get_user_spaces,
+    )
+else:
+    from services.core.memory_store import (
+        save_space, get_space, list_spaces,
+        save_edges, get_edges, get_edge, update_edge,
+        save_debate, get_debate, get_debates_by_edge,
+        get_or_create_trajectory, save_trajectory,
+        create_user, get_user, get_user_by_username, get_user_by_oauth,
+        save_password, get_password_hash, link_oauth,
+        link_space_to_user, get_user_spaces,
+    )

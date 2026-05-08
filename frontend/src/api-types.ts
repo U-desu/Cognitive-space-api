@@ -142,3 +142,14 @@ export interface HotQuestionPreset {
   text: string
   color: string
 }
+
+// ── Auth types ──
+
+export interface User {
+  user_id: string
+  username: string
+  email?: string
+  avatar?: string
+  auth_provider: string
+  created_at: number
+}

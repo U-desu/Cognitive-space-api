@@ -116,9 +116,13 @@ def _fallback_debate() -> dict:
 def get_client() -> OpenAI:
     global _client
     if _client is None:
-        if not config.OPENAI_API_KEY or config.OPENAI_API_KEY == "your-api-key-here":
-            raise RuntimeError("OPENAI_API_KEY not configured. Set MOCK_LLM=true for mock mode.")
-        _client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+        if not config.API_KEY or config.API_KEY == "your-api-key-here":
+            provider = config.LLM_PROVIDER
+            raise RuntimeError(
+                f"API key not configured for provider '{provider}'. "
+                f"Set {provider.upper()}_API_KEY or use MOCK_LLM=true for mock mode."
+            )
+        _client = OpenAI(api_key=config.API_KEY, base_url=config.API_BASE_URL)
     return _client
 
 

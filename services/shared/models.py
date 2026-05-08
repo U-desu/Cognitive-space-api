@@ -66,6 +66,7 @@ class Space(BaseModel):
     dimensions: dict[str, Dimension]
     agents: list[Agent]
     metadata: SpaceMetadata
+    user_id: Optional[str] = None  # null = anonymous space
 
 
 # ─────────────── Edge ───────────────
@@ -265,3 +266,38 @@ class ExportResponse(BaseModel):
     space: Optional[dict[str, Any]] = None
     edges: Optional[list[dict[str, Any]]] = None
     trajectory: Optional[dict[str, Any]] = None
+
+
+# ─────────────── User / Auth ───────────────
+
+class AuthProvider(str, Enum):
+    GITHUB = "github"
+    PASSWORD = "password"
+
+
+class User(BaseModel):
+    user_id: str
+    username: str
+    email: Optional[str] = None
+    avatar: Optional[str] = None
+    auth_provider: AuthProvider
+    created_at: int = 0
+
+    class Config:
+        use_enum_values = True
+
+
+class UserRegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str
+

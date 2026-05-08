@@ -22,8 +22,10 @@ Orchestrated endpoints (frontend-facing):
 
 import uuid
 import time
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
 import httpx
 
 from services.shared import config
@@ -34,7 +36,14 @@ from services.shared.models import (
     Edge, SpaceStats,
     Trajectory, RecordActionRequest,
     ExportRequest,
+    User, UserRegisterRequest, UserLoginRequest,
 )
+from services.gateway.dependencies import get_current_user, require_user
+from services.gateway.auth.jwt import create_access_token, COOKIE_NAME
+from services.gateway.auth.password_auth import register_user, authenticate_user
+from services.gateway.auth.github_oauth import get_github_authorize_url, handle_github_callback
+from services.gateway.auth.store import get_user, link_space_to_user, get_user_spaces
+
 
 app = FastAPI(
     title="Cognitive Space API Gateway",
@@ -70,7 +79,7 @@ async def _get(service_url: str, path: str):
 # ── Orchestrated: Space Creation ──
 
 @app.post("/spaces", response_model=Space)
-async def create_space(request: CreateSpaceRequest):
+async def create_space(request: CreateSpaceRequest, user: Optional[dict] = Depends(get_current_user)):
     """Orchestrated space creation:
     1. Call generator to create agents
     2. Construct Space object
@@ -100,12 +109,30 @@ async def create_space(request: CreateSpaceRequest):
             complexity="high" if len(agents) > 4 else "medium",
             estimated_nodes=len(agents),
         ),
+        user_id=user["user_id"] if user else None,
     )
 
     # 3. Store in core
     await _post(config.CORE_URL, "/spaces/ingest", space.model_dump())
 
+    # 4. Link to user if logged in
+    if user:
+        link_space_to_user(user["user_id"], space_id)
+
     return space
+
+
+# ── My Spaces (must be before /spaces/{space_id}) ──
+
+@app.get("/spaces/my")
+async def get_my_spaces(user: dict = Depends(require_user)):
+    """Get spaces created by the current logged-in user."""
+    space_ids = get_user_spaces(user["user_id"])
+    spaces = []
+    for sid in space_ids:
+        data = await _get(config.CORE_URL, f"/spaces/{sid}")
+        spaces.append(Space(**data))
+    return spaces
 
 
 @app.get("/spaces/{space_id}", response_model=Space)
@@ -312,6 +339,89 @@ async def get_hot_questions():
 async def get_domain_labels():
     data = await _get(config.AGGREGATOR_URL, "/aggregator/domain-labels")
     return data
+
+
+# ── Auth Routes ──
+
+@app.get("/auth/github/authorize")
+async def github_authorize():
+    """Return GitHub OAuth authorization URL."""
+    return {"url": get_github_authorize_url()}
+
+
+@app.get("/auth/github/callback")
+async def github_callback(code: str):
+    """Handle GitHub OAuth callback."""
+    user = await handle_github_callback(code)
+    if not user:
+        raise HTTPException(status_code=400, detail="GitHub authentication failed")
+    token = create_access_token(user.user_id)
+    response = RedirectResponse(url="/")
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=False,  # Set True in production with HTTPS
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return response
+
+
+@app.post("/auth/register")
+async def auth_register(request: UserRegisterRequest):
+    """Register a new user with username and password."""
+    try:
+        user = register_user(request)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = create_access_token(user.user_id)
+    response = JSONResponse(content={"user": user.model_dump()})
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return response
+
+
+@app.post("/auth/login")
+async def auth_login(request: UserLoginRequest):
+    """Login with username and password."""
+    user = authenticate_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = create_access_token(user.user_id)
+    response = JSONResponse(content={"user": user.model_dump()})
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return response
+
+
+@app.get("/auth/me")
+async def auth_me(user: Optional[dict] = Depends(get_current_user)):
+    """Get current logged-in user info."""
+    if not user:
+        return {"user": None}
+    full_user = get_user(user["user_id"])
+    return {"user": full_user.model_dump() if full_user else None}
+
+
+@app.post("/auth/logout")
+async def auth_logout():
+    """Logout and clear JWT cookie."""
+    response = JSONResponse(content={"message": "Logged out"})
+    response.delete_cookie(key=COOKIE_NAME)
+    return response
 
 
 # ── Health ──
