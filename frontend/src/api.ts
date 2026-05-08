@@ -41,6 +41,11 @@ export const api = {
     post<{ edges: Edge[]; space_stats: SpaceStats }>(`/spaces/${id}/edges`),
   createDebate: (id: string, req: DebateRequest) =>
     post<Debate>(`/spaces/${id}/debates`, req),
+  /**
+   * Stream debate generation via SSE.
+   * Use hooks/useDebateStream.ts instead of calling this directly.
+   */
+  createDebateStreamUrl: (spaceId: string) => `${BASE}/spaces/${spaceId}/debates/stream`,
   getTrajectory: (id: string) => get<Trajectory>(`/spaces/${id}/trajectory`),
   exportSpace: (id: string, payload: { format: string }) =>
     post<Record<string, unknown>>(`/spaces/${id}/export`, payload),
