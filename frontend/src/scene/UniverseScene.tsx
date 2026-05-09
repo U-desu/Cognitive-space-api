@@ -1,5 +1,5 @@
-import { useState, Suspense, useRef, useMemo } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useState, Suspense, useRef, useMemo, useEffect } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Stars, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { useSpaceState } from '../store/SpaceContext'
@@ -7,7 +7,9 @@ import { useLayout3D, useChildrenMap } from './useLayout3D'
 import NodeMesh from './NodeMesh'
 import ConnectionLine from './ConnectionLine'
 import CameraRig from './CameraRig'
+import BackgroundThemeSwitcher, { getSavedTheme } from '../components/BackgroundThemeSwitcher'
 import type { Agent } from '../api-types'
+import type { Theme } from '../components/BackgroundThemeSwitcher'
 
 const STANCE_COLORS: Record<string, string> = {
   pro: '#4ade80',
@@ -35,6 +37,7 @@ export default function UniverseScene({
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
+  const [theme, setTheme] = useState<Theme>(getSavedTheme)
 
   const space = state.space
   const agents = space?.agents ?? []
@@ -73,21 +76,33 @@ export default function UniverseScene({
       : space.query
     : '问题'
 
+  const isDark = theme.style === 'dark'
+
   return (
-    <div className="w-full h-full relative" style={{ background: '#d8ecef' }}>
+    <div className="w-full h-full relative" style={{ background: theme.color }}>
       {/* Back button (focus mode only) */}
       {isFocus && (
         <button
           onClick={onBackToGlobal}
-          className="absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-black/10 backdrop-blur border border-black/20 text-gray-800 hover:bg-black/20 hover:scale-105 transition-all"
+          className={`absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full backdrop-blur border transition-all hover:scale-105 ${
+            isDark
+              ? 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+              : 'bg-black/10 border-black/20 text-gray-800 hover:bg-black/20'
+          }`}
           title="返回全局视图"
         >
           ←
         </button>
       )}
 
+      <BackgroundThemeSwitcher currentTheme={theme} onThemeChange={setTheme} />
+
       {/* Hints */}
-      <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-black/10 backdrop-blur border border-black/10 text-[10px] text-gray-600 font-bold pointer-events-none">
+      <div className={`absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full backdrop-blur border text-[10px] font-bold pointer-events-none ${
+        isDark
+          ? 'bg-white/10 border-white/10 text-gray-300'
+          : 'bg-black/10 border-black/10 text-gray-600'
+      }`}>
         拖拽旋转 · 滚轮缩放 · 双击空白返回
       </div>
 
@@ -95,9 +110,11 @@ export default function UniverseScene({
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl }) => {
-          gl.setClearColor('#d8ecef')
+          gl.setClearColor(theme.color)
         }}
       >
+        <SceneBackground color={theme.color} />
+
         <ambientLight intensity={0.4} />
         <pointLight position={[50, 50, 50]} intensity={1.2} color="#ffffff" />
         <pointLight position={[-50, -30, -50]} intensity={0.5} color="#4a5568" />
@@ -252,4 +269,13 @@ function CenterLabel({ children, position }: { children: React.ReactNode; positi
       {children}
     </group>
   )
+}
+
+/** Update canvas clear color when theme changes at runtime */
+function SceneBackground({ color }: { color: string }) {
+  const { gl } = useThree()
+  useEffect(() => {
+    gl.setClearColor(color)
+  }, [gl, color])
+  return null
 }

@@ -67,7 +67,17 @@ def run_debate(
 
     rounds = []
     for r in transcript_raw:
-        turns = [Turn(**t) for t in r.get("turns", [])]
+        turns_raw = r.get("turns", [])
+        turns = []
+        for t in turns_raw:
+            # Normalize field names: some LLMs use 'speaker' instead of 'agent'
+            normalized = {
+                "agent": t.get("agent") or t.get("speaker") or "unknown",
+                "type": t.get("type", "argument"),
+                "content": t.get("content", ""),
+                "evidence": t.get("evidence", []),
+            }
+            turns.append(Turn(**normalized))
         rounds.append(Round(round=r.get("round", 0), turns=turns))
 
     synthesis = Synthesis(**synthesis_raw)

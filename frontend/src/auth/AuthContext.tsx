@@ -27,9 +27,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const data = await api.getMe()
-      setUser(data.user)
+      if (data.user) {
+        setUser(data.user)
+      } else {
+        // Guest mode: bypass login screen
+        setUser({
+          user_id: 'guest',
+          username: '访客',
+          auth_provider: 'password',
+          created_at: 0,
+        })
+      }
     } catch {
-      setUser(null)
+      // Guest mode: bypass login screen
+      setUser({
+        user_id: 'guest',
+        username: '访客',
+        auth_provider: 'password',
+        created_at: 0,
+      })
     } finally {
       setLoading(false)
     }

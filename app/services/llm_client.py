@@ -261,13 +261,13 @@ def _mock_chat_completion(messages: list[dict[str, str]], json_mode: bool = Fals
 def get_client() -> OpenAI:
     global _client
     if _client is None:
-        if not config.OPENAI_API_KEY or config.OPENAI_API_KEY == "your-api-key-here":
+        if not config.API_KEY or config.API_KEY == "your-api-key-here":
             raise RuntimeError(
-                "OPENAI_API_KEY not configured. Please set it in .env file, or set MOCK_LLM=true"
+                f"{config.LLM_PROVIDER.upper()}_API_KEY not configured. Please set it in .env file, or set MOCK_LLM=true"
             )
         _client = OpenAI(
-            api_key=config.OPENAI_API_KEY,
-            base_url=config.OPENAI_BASE_URL,
+            api_key=config.API_KEY,
+            base_url=config.API_BASE_URL,
         )
     return _client
 
@@ -298,8 +298,13 @@ def get_embedding(text: str) -> list[float]:
         return _mock_embedding(text)
 
     client = get_client()
-    resp = client.embeddings.create(
-        model=config.EMBED_MODEL,
-        input=text,
-    )
-    return resp.data[0].embedding
+    try:
+        resp = client.embeddings.create(
+            model=config.EMBED_MODEL,
+            input=text,
+        )
+        return resp.data[0].embedding
+    except Exception:
+        # Fallback to mock embedding when provider doesn't support embeddings
+        # (e.g., DeepSeek doesn't have an embedding API)
+        return _mock_embedding(text)
