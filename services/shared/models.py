@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from enum import Enum
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ─────────────── Agent ───────────────
@@ -38,8 +38,7 @@ class Agent(BaseModel):
     summary: str = ""
     parent_id: Optional[str] = None  # 父 Agent ID，表示由该 Agent 展开生成
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ─────────────── Space ───────────────
@@ -306,8 +305,7 @@ class User(BaseModel):
     auth_provider: AuthProvider
     created_at: int = 0
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class UserRegisterRequest(BaseModel):

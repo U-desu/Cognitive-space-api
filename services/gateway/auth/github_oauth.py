@@ -1,4 +1,3 @@
-import os
 import uuid
 import time
 from typing import Optional, Dict, Any
@@ -6,15 +5,12 @@ from typing import Optional, Dict, Any
 import httpx
 
 from services.shared.models import User
+from services.shared.config import GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_REDIRECT_URI
 from services.gateway.auth.store import (
     get_user_by_oauth,
     create_user,
     link_oauth,
 )
-
-GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
-GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback")
 
 
 def get_github_authorize_url(state: str = "default") -> str:

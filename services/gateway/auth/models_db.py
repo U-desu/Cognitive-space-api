@@ -4,7 +4,7 @@ Schema: auth
 Tables: users, passwords, oauth_accounts, user_spaces
 """
 
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 
 from services.shared.db_config import Base, DB_SCHEMA_AUTH
@@ -44,8 +44,11 @@ class OAuthAccountDB(Base):
 
 class UserSpaceDB(Base):
     __tablename__ = "user_spaces"
-    __table_args__ = {"schema": SCHEMA}
+    __table_args__ = (
+        UniqueConstraint("user_id", "space_id", name="user_spaces_user_space_unique"),
+        {"schema": SCHEMA},
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(30), ForeignKey(f"{SCHEMA}.users.user_id", ondelete="CASCADE"), nullable=False)
-    space_id = Column(String(20), nullable=False)
+    space_id = Column(String(20), nullable=False)  # No FK — core.spaces lives in Core service

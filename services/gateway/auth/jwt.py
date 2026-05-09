@@ -1,13 +1,10 @@
-import os
 import time
 from typing import Optional
 
 from fastapi import Request, HTTPException, status
 from jose import jwt, JWTError
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))
+from services.shared.config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
 
 COOKIE_NAME = "access_token"
 

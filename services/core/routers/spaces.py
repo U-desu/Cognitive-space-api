@@ -59,3 +59,12 @@ def add_agents(space_id: str, agents: list[Agent]):
     # 如果启用 DB，同时写入 agents 表
     store.add_agents_to_space(space_id, new_agents)
     return space
+
+
+@router.delete("/{space_id}")
+def delete_space(space_id: str):
+    """Delete a space and all its data."""
+    deleted = store.delete_space(space_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Space not found")
+    return {"message": "Space deleted", "space_id": space_id}

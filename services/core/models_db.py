@@ -32,7 +32,7 @@ class AgentDB(Base):
     __tablename__ = "agents"
     __table_args__ = {"schema": SCHEMA}
 
-    agent_id = Column(String(20), primary_key=True)
+    agent_id = Column(String(50), primary_key=True)
     space_id = Column(String(20), ForeignKey(f"{SCHEMA}.spaces.space_id", ondelete="CASCADE"), primary_key=True)
     name = Column(String(100), nullable=False)
     persona = Column(Text)
@@ -53,18 +53,20 @@ class EdgeDB(Base):
         ForeignKeyConstraint(
             ["space_id", "source_agent_id"],
             [f"{SCHEMA}.agents.space_id", f"{SCHEMA}.agents.agent_id"],
+            ondelete="CASCADE",
         ),
         ForeignKeyConstraint(
             ["space_id", "target_agent_id"],
             [f"{SCHEMA}.agents.space_id", f"{SCHEMA}.agents.agent_id"],
+            ondelete="CASCADE",
         ),
         {"schema": SCHEMA},
     )
 
     edge_id = Column(String(50), primary_key=True)
     space_id = Column(String(20), ForeignKey(f"{SCHEMA}.spaces.space_id", ondelete="CASCADE"), primary_key=True)
-    source_agent_id = Column(String(20), nullable=False)
-    target_agent_id = Column(String(20), nullable=False)
+    source_agent_id = Column(String(50), nullable=False)
+    target_agent_id = Column(String(50), nullable=False)
     conflict_score = Column(Float, nullable=False)
     conflict_type = Column(String(20))
     shared_ground = Column(PG_ARRAY(Text))
@@ -75,7 +77,14 @@ class EdgeDB(Base):
 
 class DebateDB(Base):
     __tablename__ = "debates"
-    __table_args__ = {"schema": SCHEMA}
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["space_id", "edge_id"],
+            [f"{SCHEMA}.edges.space_id", f"{SCHEMA}.edges.edge_id"],
+            ondelete="CASCADE",
+        ),
+        {"schema": SCHEMA},
+    )
 
     debate_id = Column(String(20), primary_key=True)
     space_id = Column(String(20), ForeignKey(f"{SCHEMA}.spaces.space_id", ondelete="CASCADE"), nullable=False)
@@ -110,43 +119,3 @@ class TrajectoryEventDB(Base):
     dwell_time = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-
-# ── User / Auth (mirrors memory_store for backward compat) ──
-
-class UserDB(Base):
-    __tablename__ = "users"
-    __table_args__ = {"schema": SCHEMA}
-
-    user_id = Column(String(30), primary_key=True)
-    username = Column(String(100), unique=True, nullable=False)
-    email = Column(String(200))
-    avatar = Column(Text)
-    auth_provider = Column(String(20), default="password")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class PasswordDB(Base):
-    __tablename__ = "passwords"
-    __table_args__ = {"schema": SCHEMA}
-
-    user_id = Column(String(30), ForeignKey(f"{SCHEMA}.users.user_id", ondelete="CASCADE"), primary_key=True)
-    password_hash = Column(Text, nullable=False)
-
-
-class OAuthAccountDB(Base):
-    __tablename__ = "oauth_accounts"
-    __table_args__ = {"schema": SCHEMA}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(30), ForeignKey(f"{SCHEMA}.users.user_id", ondelete="CASCADE"), nullable=False)
-    provider = Column(String(20), nullable=False)
-    provider_account_id = Column(String(100), nullable=False, unique=True)
-
-
-class UserSpaceDB(Base):
-    __tablename__ = "user_spaces"
-    __table_args__ = {"schema": SCHEMA}
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(30), ForeignKey(f"{SCHEMA}.users.user_id", ondelete="CASCADE"), nullable=False)
-    space_id = Column(String(20), nullable=False)

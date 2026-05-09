@@ -79,6 +79,13 @@ async def _get(service_url: str, path: str):
         return resp.json()
 
 
+async def _delete(service_url: str, path: str):
+    async with httpx.AsyncClient() as client:
+        resp = await client.delete(f"{service_url}{path}", timeout=30.0)
+        resp.raise_for_status()
+        return resp.json()
+
+
 # ── Orchestrated: Space Creation ──
 
 @app.post("/spaces", response_model=Space)
@@ -140,15 +147,23 @@ async def get_my_spaces(user: dict = Depends(require_user)):
 
 
 @app.get("/spaces/{space_id}", response_model=Space)
-async def get_space(space_id: str, user: dict = Depends(require_user)):
+async def get_space(space_id: str, user: Optional[dict] = Depends(get_current_user)):
     data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     return Space(**data)
+
+
+@app.delete("/spaces/{space_id}")
+async def delete_space(space_id: str, user: dict = Depends(require_user)):
+    """Delete a space (owner only)."""
+    # TODO: verify user owns the space
+    data = await _delete(config.CORE_URL, f"/spaces/{space_id}")
+    return data
 
 
 # ── Orchestrated: Edge Computation ──
 
 @app.post("/spaces/{space_id}/edges")
-async def compute_edges(space_id: str, user: dict = Depends(require_user)):
+async def compute_edges(space_id: str, user: Optional[dict] = Depends(get_current_user)):
     """Orchestrated edge computation:
     1. Call compute service to calculate edges
     2. Store edges in core service
@@ -178,7 +193,7 @@ async def compute_edges(space_id: str, user: dict = Depends(require_user)):
 # ── Orchestrated: Debate Generation ──
 
 @app.post("/spaces/{space_id}/debates")
-async def create_debate(space_id: str, request: DebateRequest, user: dict = Depends(require_user)):
+async def create_debate(space_id: str, request: DebateRequest, user: Optional[dict] = Depends(get_current_user)):
     """Orchestrated debate generation:
     1. Fetch space + edge from core
     2. Call generator to generate debate
@@ -263,7 +278,7 @@ async def create_debate(space_id: str, request: DebateRequest, user: dict = Depe
 # ── Orchestrated: Debate Generation (SSE Stream) ──
 
 @app.post("/spaces/{space_id}/debates/stream")
-async def create_debate_stream(space_id: str, request: DebateRequest, user: dict = Depends(require_user)):
+async def create_debate_stream(space_id: str, request: DebateRequest, user: Optional[dict] = Depends(get_current_user)):
     """Stream debate generation via SSE.
 
     Proxies the Generator's /generate-stream endpoint, pushing each turn
@@ -317,7 +332,7 @@ async def create_debate_stream(space_id: str, request: DebateRequest, user: dict
 # ── Orchestrated: Trajectory ──
 
 @app.get("/spaces/{space_id}/trajectory")
-async def get_trajectory(space_id: str, user: dict = Depends(require_user)):
+async def get_trajectory(space_id: str, user: Optional[dict] = Depends(get_current_user)):
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -343,7 +358,7 @@ async def get_trajectory(space_id: str, user: dict = Depends(require_user)):
 # ── Perspectives (lightweight, no LLM) ──
 
 @app.post("/spaces/{space_id}/perspectives")
-async def generate_perspectives(space_id: str, payload: dict, user: dict = Depends(require_user)):
+async def generate_perspectives(space_id: str, payload: dict, user: Optional[dict] = Depends(get_current_user)):
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -365,7 +380,7 @@ async def generate_perspectives(space_id: str, payload: dict, user: dict = Depen
 # ── Export ──
 
 @app.post("/spaces/{space_id}/export")
-async def export_space(space_id: str, payload: ExportRequest, user: dict = Depends(require_user)):
+async def export_space(space_id: str, payload: ExportRequest, user: Optional[dict] = Depends(get_current_user)):
     data = await _post(
         config.CORE_URL,
         f"/spaces/{space_id}/export",

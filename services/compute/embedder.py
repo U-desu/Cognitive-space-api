@@ -11,7 +11,6 @@ produce vectors with actual semantic distinguishability.
 """
 
 import math
-import os
 from typing import Optional
 
 from services.shared import config
@@ -129,7 +128,7 @@ def _get_local_model():
     if _local_model is None:
         try:
             from sentence_transformers import SentenceTransformer
-            model_name = os.getenv("COMPUTE_LOCAL_MODEL", "all-MiniLM-L6-v2")
+            model_name = config.COMPUTE_LOCAL_MODEL
             _local_model = SentenceTransformer(model_name)
         except ImportError:
             raise RuntimeError(
@@ -162,7 +161,7 @@ def embed(text: str) -> list[float]:
     - "openai":  OpenAI API (high quality, requires API key)
     - "mock":    domain-keyword vectors (default, fast, has semantic meaning)
     """
-    backend = os.getenv("COMPUTE_EMBED_BACKEND", "mock").lower()
+    backend = config.COMPUTE_EMBED_BACKEND.lower()
 
     if backend == "local":
         model = _get_local_model()
@@ -171,7 +170,7 @@ def embed(text: str) -> list[float]:
 
     elif backend == "openai":
         client = _get_openai_client()
-        model = os.getenv("COMPUTE_OPENAI_MODEL", "text-embedding-3-small")
+        model = config.COMPUTE_OPENAI_MODEL
         resp = client.embeddings.create(model=model, input=text)
         return resp.data[0].embedding
 
@@ -181,7 +180,7 @@ def embed(text: str) -> list[float]:
 
 def embed_batch(texts: list[str]) -> list[list[float]]:
     """Batch embedding for efficiency."""
-    backend = os.getenv("COMPUTE_EMBED_BACKEND", "mock").lower()
+    backend = config.COMPUTE_EMBED_BACKEND.lower()
 
     if backend == "local":
         model = _get_local_model()
@@ -190,7 +189,7 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
 
     elif backend == "openai":
         client = _get_openai_client()
-        model = os.getenv("COMPUTE_OPENAI_MODEL", "text-embedding-3-small")
+        model = config.COMPUTE_OPENAI_MODEL
         resp = client.embeddings.create(model=model, input=texts)
         return [d.embedding for d in resp.data]
 

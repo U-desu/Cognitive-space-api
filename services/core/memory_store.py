@@ -35,6 +35,19 @@ def list_spaces() -> list[Space]:
     return list(_spaces.values())
 
 
+def delete_space(space_id: str) -> bool:
+    """Delete a space and all its related data."""
+    if space_id not in _spaces:
+        return False
+    del _spaces[space_id]
+    _edges.pop(space_id, None)
+    _trajectories.pop(space_id, None)
+    for debate_id in list(_debates.keys()):
+        if _debates[debate_id].space_id == space_id:
+            del _debates[debate_id]
+    return True
+
+
 def add_agents_to_space(space_id: str, agents: list["Agent"]) -> None:
     """Append new agents to an existing space (used by expand)."""
     space = _spaces.get(space_id)
@@ -111,44 +124,3 @@ def save_trajectory(trajectory: Trajectory) -> None:
 
 # ── User / Auth (kept for backward compat, Gateway uses its own store) ──
 
-def create_user(user: User) -> None:
-    _users[user.user_id] = user
-
-
-def get_user(user_id: str) -> Optional[User]:
-    return _users.get(user_id)
-
-
-def get_user_by_username(username: str) -> Optional[User]:
-    for u in _users.values():
-        if u.username == username:
-            return u
-    return None
-
-
-def get_user_by_oauth(provider: str, provider_id: str) -> Optional[User]:
-    user_id = _oauth_accounts.get(f"{provider}:{provider_id}")
-    return _users.get(user_id) if user_id else None
-
-
-def save_password(user_id: str, password_hash: str) -> None:
-    _passwords[user_id] = password_hash
-
-
-def get_password_hash(user_id: str) -> Optional[str]:
-    return _passwords.get(user_id)
-
-
-def link_oauth(user_id: str, provider: str, provider_id: str) -> None:
-    _oauth_accounts[f"{provider}:{provider_id}"] = user_id
-
-
-def link_space_to_user(user_id: str, space_id: str) -> None:
-    if user_id not in _user_spaces:
-        _user_spaces[user_id] = []
-    if space_id not in _user_spaces[user_id]:
-        _user_spaces[user_id].append(space_id)
-
-
-def get_user_spaces(user_id: str) -> list[str]:
-    return _user_spaces.get(user_id, [])

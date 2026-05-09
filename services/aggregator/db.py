@@ -7,10 +7,9 @@ Schema: aggregator (reserved in PostgreSQL)
 Collections: external_users, external_questions, presets
 """
 
-import os
 from services.shared.db_config import USE_DB, engine, Base, DB_SCHEMA_AGGREGATOR
 
-USE_AGGREGATOR_DB = os.getenv("USE_AGGREGATOR_DB", "false").lower() == "true"
+USE_AGGREGATOR_DB = USE_DB  # Align with global DB toggle
 SCHEMA = DB_SCHEMA_AGGREGATOR
 
 
