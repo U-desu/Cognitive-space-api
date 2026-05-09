@@ -135,7 +135,10 @@ export default function AgentPanel({ agentId, onClose }: Props) {
         num_agents: 2,
       }
       const updatedSpace = await api.expandAgent(space.space_id, agent.agent_id, req)
-      dispatch({ type: 'SET_SPACE', payload: updatedSpace })
+      // Extract only newly added agents to avoid overwriting edges via SET_SPACE
+      const existingIds = new Set(space.agents.map((a) => a.agent_id))
+      const newAgents = updatedSpace.agents.filter((a) => !existingIds.has(a.agent_id))
+      dispatch({ type: 'APPEND_AGENTS', payload: { agents: newAgents } })
       setExpandHint('')
     } catch (err) {
       console.error('Expand failed:', err)

@@ -18,6 +18,8 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: C
   const animProgress = useRef(0)
   const startPos = useRef(new THREE.Vector3())
   const startTarget = useRef(new THREE.Vector3())
+  const startAzimuth = useRef(0)
+  const startPolar = useRef(0)
 
   // When target changes, start a one-shot fly animation
   useEffect(() => {
@@ -27,6 +29,8 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: C
     animProgress.current = 0
     startPos.current.copy(camera.position)
     startTarget.current.copy(controlsRef.current.target)
+    startAzimuth.current = controlsRef.current.getAzimuthalAngle()
+    startPolar.current = controlsRef.current.getPolarAngle()
   }, [targetPosition, isFocus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Execute the fly animation; once complete, hands control back to OrbitControls
@@ -40,9 +44,22 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: C
       ? new THREE.Vector3(...targetPosition)
       : new THREE.Vector3(0, 0, 0)
 
-    const desiredCamPos = targetPosition
-      ? targetVec.clone().add(new THREE.Vector3(15, 10, 15))
-      : new THREE.Vector3(80, 40, 80)
+    // Preserve the user's current viewing angles (azimuth + polar)
+    // Only change the distance (radius) and the target position
+    const focusDistance = 30
+    const globalDistance = 80
+    const desiredDistance = targetPosition ? focusDistance : globalDistance
+
+    const azimuth = startAzimuth.current
+    const polar = startPolar.current
+
+    // Spherical to Cartesian: maintain angle, change radius
+    const offset = new THREE.Vector3()
+    offset.x = desiredDistance * Math.sin(polar) * Math.sin(azimuth)
+    offset.y = desiredDistance * Math.cos(polar)
+    offset.z = desiredDistance * Math.sin(polar) * Math.cos(azimuth)
+
+    const desiredCamPos = targetVec.clone().add(offset)
 
     // Lerp camera position
     camera.position.lerpVectors(startPos.current, desiredCamPos, t)
