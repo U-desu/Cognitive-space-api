@@ -4,8 +4,11 @@ This is the default storage backend when USE_DB=false.
 Zero dependencies, zero configuration.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
 from services.shared.models import Space, Edge, Debate, Trajectory, User
+
+if TYPE_CHECKING:
+    from services.shared.models import Agent
 
 _spaces: Dict[str, Space] = {}
 _edges: Dict[str, list[Edge]] = {}
@@ -30,6 +33,17 @@ def get_space(space_id: str) -> Optional[Space]:
 
 def list_spaces() -> list[Space]:
     return list(_spaces.values())
+
+
+def add_agents_to_space(space_id: str, agents: list["Agent"]) -> None:
+    """Append new agents to an existing space (used by expand)."""
+    space = _spaces.get(space_id)
+    if not space:
+        return
+    existing_ids = {a.agent_id for a in space.agents}
+    for agent in agents:
+        if agent.agent_id not in existing_ids:
+            space.agents.append(agent)
 
 
 # ── Edge ──

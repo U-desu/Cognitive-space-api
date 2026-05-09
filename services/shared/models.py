@@ -36,6 +36,7 @@ class Agent(BaseModel):
     confidence: float = Field(0.8, ge=0.0, le=1.0)
     domain: str = ""
     summary: str = ""
+    parent_id: Optional[str] = None  # 父 Agent ID，表示由该 Agent 展开生成
 
     class Config:
         use_enum_values = True
@@ -244,6 +245,27 @@ class GenerateAgentsRequest(BaseModel):
 class GenerateAgentsResponse(BaseModel):
     agents: list[Agent]
     latency_ms: int = 0
+
+
+class ExpandAgentRequest(BaseModel):
+    """基于已有 Agent 向外发散生成新 Agents 的请求。"""
+    parent_agent: Agent                     # 父 Agent 完整信息
+    query_hint: str = ""                    # 用户指定的展开方向提示
+    num_agents: int = Field(2, ge=1, le=5)  # 生成数量
+    user_context: Optional[dict[str, Any]] = None
+
+
+class ExpandAgentResponse(BaseModel):
+    """Agent 展开响应。"""
+    parent_agent_id: str
+    new_agents: list[Agent]
+
+
+class AgentExpandPayload(BaseModel):
+    """前端调用 Gateway expand 端点时发送的简化请求体。
+    Gateway 会自行从 Space 中获取 parent_agent 信息。"""
+    query_hint: str = ""
+    num_agents: int = Field(2, ge=1, le=5)
 
 
 # ─────────────── Export ───────────────

@@ -10,6 +10,7 @@ import type {
   ExternalQuestion,
   HotQuestionPreset,
   User,
+  AgentExpandPayload,
 } from './api-types'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
@@ -50,6 +51,8 @@ export const api = {
   exportSpace: (id: string, payload: { format: string }) =>
     post<Record<string, unknown>>(`/spaces/${id}/export`, payload),
   getMySpaces: () => get<Space[]>('/spaces/my'),
+  expandAgent: (spaceId: string, agentId: string, req: AgentExpandPayload) =>
+    post<Space>(`/spaces/${spaceId}/agents/${agentId}/expand`, req),
 
   // Auth
   getGithubAuthUrl: () => get<{ url: string }>('/auth/github/authorize'),

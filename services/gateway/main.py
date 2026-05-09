@@ -37,6 +37,8 @@ from services.shared.models import (
     Trajectory, RecordActionRequest,
     ExportRequest,
     User, UserRegisterRequest, UserLoginRequest,
+    ExpandAgentRequest,
+    AgentExpandPayload,
 )
 from services.gateway.dependencies import get_current_user, require_user
 from services.gateway.auth.jwt import create_access_token, COOKIE_NAME
@@ -476,6 +478,75 @@ async def auth_logout():
     response = JSONResponse(content={"message": "Logged out"})
     response.delete_cookie(key=COOKIE_NAME)
     return response
+
+
+# ── Orchestrated: Agent Expansion ──
+
+@app.post("/spaces/{space_id}/agents/{agent_id}/expand", response_model=Space)
+async def expand_agent(
+    space_id: str,
+    agent_id: str,
+    request: AgentExpandPayload,
+    user: dict = Depends(require_user),
+):
+    """Orchestrated agent expansion:
+    1. Fetch space + parent agent from core
+    2. Call generator to create child agents
+    3. Append new agents to space
+    4. Re-compute edges for the expanded space
+    5. Return updated space
+    """
+    # 1. Fetch space
+    space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
+    space = Space(**space_data)
+
+    # 2. Find parent agent
+    parent_agent = next((a for a in space.agents if a.agent_id == agent_id), None)
+    if not parent_agent:
+        raise HTTPException(status_code=404, detail="Agent not found in space")
+
+    # 3. Call generator to expand
+    expand_payload = {
+        "parent_agent": parent_agent.model_dump(),
+        "query_hint": request.query_hint,
+        "num_agents": request.num_agents,
+        "user_context": None,
+    }
+    expand_resp = await _post(
+        config.GENERATOR_URL,
+        "/generator/agents/expand",
+        expand_payload,
+    )
+    new_agents_raw = expand_resp.get("new_agents", [])
+    new_agents = [Agent(**a) for a in new_agents_raw]
+
+    if not new_agents:
+        return space
+
+    # 4. Append new agents to space via core
+    await _post(
+        config.CORE_URL,
+        f"/spaces/{space_id}/agents",
+        [a.model_dump() for a in new_agents],
+    )
+
+    # 5. Re-compute and store edges for expanded space
+    edges_data = await _post(
+        config.COMPUTE_URL,
+        "/compute/edges/compute",
+        {"space_id": space_id},
+    )
+    edges_raw = edges_data.get("edges", [])
+    edges = [Edge(**e) for e in edges_raw]
+    await _post(
+        config.CORE_URL,
+        f"/spaces/{space_id}/edges",
+        {"edges": [e.model_dump() for e in edges]},
+    )
+
+    # 6. Fetch updated space
+    updated_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
+    return Space(**updated_data)
 
 
 # ── Health ──

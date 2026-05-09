@@ -17,6 +17,7 @@ type Action =
   | { type: 'SET_TRAJECTORY'; payload: Trajectory }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'APPEND_AGENTS'; payload: { agents: Space['agents']; edges?: Edge[] } }
 
 const initialState: State = {
   space: null,
@@ -41,6 +42,16 @@ function reducer(state: State, action: Action): State {
       return { ...state, loading: action.payload }
     case 'SET_ERROR':
       return { ...state, error: action.payload }
+    case 'APPEND_AGENTS':
+      if (!state.space) return state
+      return {
+        ...state,
+        space: {
+          ...state.space,
+          agents: [...state.space.agents, ...action.payload.agents],
+        },
+        edges: action.payload.edges ?? state.edges,
+      }
     default:
       return state
   }

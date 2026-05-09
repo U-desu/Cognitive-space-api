@@ -3,11 +3,12 @@ import { useSpaceState } from '../store/SpaceContext'
 import { ArrowLeft } from 'lucide-react'
 import type { Agent } from '../api-types'
 
-const W = 1000
-const H = 1000
+const W = 2000
+const H = 2000
 const CX = W / 2
 const CY = H / 2
-const RADIUS = 320
+const ROOT_RADIUS = 380
+const CHILD_RADIUS_BASE = 220
 const SIDEBAR_WIDTH = 384
 
 const STANCE_COLORS: Record<string, string> = {
@@ -29,11 +30,73 @@ function polarToCartesian(
   return [cx + r * Math.cos(angleRad), cy + r * Math.sin(angleRad)]
 }
 
+/** Compute radial-tree layout: roots around center, children around parents. */
+function computeRadialTreeLayout(agents: Agent[]): Map<string, [number, number]> {
+  const positions = new Map<string, [number, number]>()
+  const childrenMap = new Map<string, Agent[]>()
+
+  for (const agent of agents) {
+    if (agent.parent_id) {
+      const list = childrenMap.get(agent.parent_id) || []
+      list.push(agent)
+      childrenMap.set(agent.parent_id, list)
+    }
+  }
+
+  const roots = agents.filter((a) => !a.parent_id)
+  const rootCount = Math.max(roots.length, 1)
+
+  // Place roots around center
+  roots.forEach((root, i) => {
+    const angle = (360 / rootCount) * i
+    positions.set(root.agent_id, polarToCartesian(CX, CY, ROOT_RADIUS, angle))
+  })
+
+  // Recursively place children
+  function placeChildren(parentId: string, depth: number) {
+    const children = childrenMap.get(parentId)
+    if (!children || children.length === 0) return
+
+    const parentPos = positions.get(parentId)
+    if (!parentPos) return
+
+    const childRadius = CHILD_RADIUS_BASE * Math.pow(0.72, depth)
+    const angleOffset = depth * 40
+    const count = children.length
+
+    children.forEach((child, i) => {
+      const baseAngle = (360 / count) * i + angleOffset
+      // Stagger odd depths to reduce overlap
+      const stagger = depth % 2 === 1 ? 180 / count : 0
+      const angle = baseAngle + stagger
+      positions.set(
+        child.agent_id,
+        polarToCartesian(parentPos[0], parentPos[1], childRadius, angle)
+      )
+      placeChildren(child.agent_id, depth + 1)
+    })
+  }
+
+  roots.forEach((r) => placeChildren(r.agent_id, 0))
+
+  // Also place any orphaned agents (shouldn't happen, but safe-guard)
+  for (const agent of agents) {
+    if (!positions.has(agent.agent_id)) {
+      const orphanIdx = agents.indexOf(agent)
+      const angle = (360 / agents.length) * orphanIdx
+      positions.set(agent.agent_id, polarToCartesian(CX, CY, ROOT_RADIUS * 1.5, angle))
+    }
+  }
+
+  return positions
+}
+
 interface Props {
   onAgentClick: (agentId: string) => void
   selectedAgent: string | null
   viewMode: 'global' | 'focus'
   onBackToGlobal: () => void
+  onExpandAgent?: (agentId: string) => void
 }
 
 export default function SpaceScene({
@@ -41,6 +104,7 @@ export default function SpaceScene({
   selectedAgent,
   viewMode,
   onBackToGlobal,
+  onExpandAgent,
 }: Props) {
   const { state } = useSpaceState()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -70,15 +134,22 @@ export default function SpaceScene({
   const agents = space?.agents ?? []
   const isFocus = viewMode === 'focus'
 
-  // Global positions (all agents around center)
-  const globalPositions = useMemo(() => {
-    const map = new Map<string, [number, number]>()
-    const count = agents.length
-    agents.forEach((agent, i) => {
-      const angle = (360 / count) * i
-      map.set(agent.agent_id, polarToCartesian(CX, CY, RADIUS, angle))
-    })
+  // Build parent -> children map for lines
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, Agent[]>()
+    for (const a of agents) {
+      if (a.parent_id) {
+        const list = map.get(a.parent_id) || []
+        list.push(a)
+        map.set(a.parent_id, list)
+      }
+    }
     return map
+  }, [agents])
+
+  // Compute radial-tree positions
+  const positions = useMemo(() => {
+    return computeRadialTreeLayout(agents)
   }, [agents])
 
   // Compute focus base pan when entering focus or switching agent
@@ -96,7 +167,7 @@ export default function SpaceScene({
     if (selectedAgent === USER_AGENT_ID) {
       pos = [CX, CY]
     } else {
-      pos = globalPositions.get(selectedAgent)
+      pos = positions.get(selectedAgent)
     }
     if (!pos) return
 
@@ -127,7 +198,7 @@ export default function SpaceScene({
     const basePanY = visibleCenterY - charAfterScaleY
 
     setFocusBasePan({ x: basePanX, y: basePanY })
-  }, [isFocus, selectedAgent, globalPositions])
+  }, [isFocus, selectedAgent, positions])
 
   // Drag & zoom handlers (real-time, no damping)
   useEffect(() => {
@@ -204,12 +275,23 @@ export default function SpaceScene({
     }
   }
 
+  const handleExpandClick = (e: React.MouseEvent, agentId: string) => {
+    e.stopPropagation()
+    onExpandAgent?.(agentId)
+  }
+
   // Final transform: fixed transformOrigin, only transform changes
   const finalScale = isFocus ? 1.7 * userZoom : userZoom
   const finalPanX = focusBasePan.x + userPan.x
   const finalPanY = focusBasePan.y + userPan.y
 
   const isDragging = dragRef.current.isDown
+
+  // Center label: use space query abbreviation
+  const centerLabel = useMemo(() => {
+    if (!space?.query) return '问题'
+    return space.query.length > 6 ? space.query.slice(0, 6) + '…' : space.query
+  }, [space?.query])
 
   return (
     <div
@@ -257,26 +339,28 @@ export default function SpaceScene({
           className="w-full h-full"
         >
           {/* Background reference circles */}
-          <circle cx={CX} cy={CY} r={RADIUS} fill="none" stroke="#e0e7ff" strokeWidth="2" />
-          <circle cx={CX} cy={CY} r={RADIUS * 0.6} fill="none" stroke="#e0e7ff" strokeWidth="1" />
+          <circle cx={CX} cy={CY} r={ROOT_RADIUS} fill="none" stroke="#e0e7ff" strokeWidth="2" />
+          <circle cx={CX} cy={CY} r={ROOT_RADIUS * 0.6} fill="none" stroke="#e0e7ff" strokeWidth="1" />
 
-          {/* Lines: center -> each agent */}
+          {/* Lines: parent -> child */}
           {agents.map((agent) => {
-            const pos = globalPositions.get(agent.agent_id)
-            if (!pos) return null
+            if (!agent.parent_id) return null
+            const from = positions.get(agent.parent_id)
+            const to = positions.get(agent.agent_id)
+            if (!from || !to) return null
             const color = STANCE_COLORS[agent.stance] || '#94a3b8'
             const isSel = selectedAgent === agent.agent_id
             const isHov = hoveredAgent === agent.agent_id
-            const opacity = isSel ? 0.7 : isHov ? 0.5 : 0.25
+            const opacity = isSel ? 0.7 : isHov ? 0.5 : 0.35
             const strokeWidth = isSel ? 4 : isHov ? 3 : 2
 
             return (
               <line
                 key={`line-${agent.agent_id}`}
-                x1={CX}
-                y1={CY}
-                x2={pos[0]}
-                y2={pos[1]}
+                x1={from[0]}
+                y1={from[1]}
+                x2={to[0]}
+                y2={to[1]}
                 stroke={color}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
@@ -288,7 +372,38 @@ export default function SpaceScene({
             )
           })}
 
-          {/* Center node "You" */}
+          {/* Optional: root -> center lines (subtle) */}
+          {agents
+            .filter((a) => !a.parent_id)
+            .map((agent) => {
+              const pos = positions.get(agent.agent_id)
+              if (!pos) return null
+              const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+              const isSel = selectedAgent === agent.agent_id
+              const isHov = hoveredAgent === agent.agent_id
+              const opacity = isSel ? 0.4 : isHov ? 0.3 : 0.18
+              const strokeWidth = isSel ? 3 : isHov ? 2 : 1.5
+
+              return (
+                <line
+                  key={`root-line-${agent.agent_id}`}
+                  x1={CX}
+                  y1={CY}
+                  x2={pos[0]}
+                  y2={pos[1]}
+                  stroke={color}
+                  strokeWidth={strokeWidth}
+                  opacity={opacity}
+                  strokeDasharray="6 4"
+                  style={{ transition: 'all 0.3s', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredAgent(agent.agent_id)}
+                  onMouseLeave={() => setHoveredAgent(null)}
+                  onClick={() => handleAgentClick(agent.agent_id)}
+                />
+              )
+            })}
+
+          {/* Center node */}
           <g
             onMouseEnter={() => setHoveredCenter(true)}
             onMouseLeave={() => setHoveredCenter(false)}
@@ -314,21 +429,22 @@ export default function SpaceScene({
               style={{ transition: 'r 0.2s' }}
             />
             <text x={CX} y={CY - 6} textAnchor="middle" fill="white" fontSize="28">
-              👤
+              🌟
             </text>
-            <text x={CX} y={CY + 18} textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">
-              你
+            <text x={CX} y={CY + 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+              {centerLabel}
             </text>
           </g>
 
           {/* Agent nodes */}
           {agents.map((agent) => {
-            const pos = globalPositions.get(agent.agent_id)
+            const pos = positions.get(agent.agent_id)
             if (!pos) return null
             const color = STANCE_COLORS[agent.stance] || '#94a3b8'
             const isSel = selectedAgent === agent.agent_id
             const isHov = hoveredAgent === agent.agent_id
             const r = isSel ? 40 : isHov ? 34 : 28
+            const hasChildren = (childrenMap.get(agent.agent_id)?.length ?? 0) > 0
 
             return (
               <g
@@ -366,6 +482,30 @@ export default function SpaceScene({
                   style={{ transition: 'r 0.3s' }}
                 />
 
+                {/* Child count badge */}
+                {hasChildren && (
+                  <g>
+                    <circle
+                      cx={pos[0] + r * 0.7}
+                      cy={pos[1] - r * 0.7}
+                      r={10}
+                      fill="white"
+                      stroke={color}
+                      strokeWidth={1.5}
+                    />
+                    <text
+                      x={pos[0] + r * 0.7}
+                      y={pos[1] - r * 0.7 + 3}
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill={color}
+                      fontWeight="bold"
+                    >
+                      {childrenMap.get(agent.agent_id)!.length}
+                    </text>
+                  </g>
+                )}
+
                 <text
                   x={pos[0]}
                   y={pos[1] + 6}
@@ -374,6 +514,32 @@ export default function SpaceScene({
                 >
                   {agent.stance === 'pro' ? '✅' : agent.stance === 'con' ? '❌' : '⚖️'}
                 </text>
+
+                {/* Expand button (visible on hover or selected) */}
+                {(isHov || isSel) && onExpandAgent && (
+                  <g
+                    onClick={(e) => handleExpandClick(e as unknown as React.MouseEvent, agent.agent_id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <circle
+                      cx={pos[0] + r + 10}
+                      cy={pos[1]}
+                      r={12}
+                      fill="white"
+                      stroke={color}
+                      strokeWidth={1.5}
+                      opacity={0.95}
+                    />
+                    <text
+                      x={pos[0] + r + 10}
+                      y={pos[1] + 4}
+                      textAnchor="middle"
+                      fontSize="12"
+                    >
+                      🔍
+                    </text>
+                  </g>
+                )}
 
                 <foreignObject
                   x={pos[0] - 60}
@@ -412,6 +578,7 @@ export default function SpaceScene({
       )}
       {hoveredCenter && !hoveredAgent && (
         <CenterTooltip
+          query={space?.query ?? '你的决策问题'}
           onMouseEnter={() => setHoveredCenter(true)}
           onMouseLeave={() => setHoveredCenter(false)}
         />
@@ -430,6 +597,7 @@ function AgentTooltip({
   onMouseLeave: () => void
 }) {
   const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+  const isChild = !!agent.parent_id
   return (
     <div
       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
@@ -439,6 +607,7 @@ function AgentTooltip({
       <div className="px-4 py-3 rounded-2xl bg-white border-2 border-indigo-100 shadow-xl whitespace-nowrap">
         <div className="text-xs font-extrabold" style={{ color }}>
           {agent.stance === 'pro' ? '✅ 支持' : agent.stance === 'con' ? '❌ 反对' : '⚖️ 中立'}
+          {isChild && <span className="ml-2 text-gray-400 font-normal">· 子节点</span>}
         </div>
         <div className="text-xs text-gray-500 mt-1 max-w-[200px] truncate">
           {agent.summary}
@@ -452,9 +621,11 @@ function AgentTooltip({
 }
 
 function CenterTooltip({
+  query,
   onMouseEnter,
   onMouseLeave,
 }: {
+  query: string
   onMouseEnter: () => void
   onMouseLeave: () => void
 }) {
@@ -465,8 +636,8 @@ function CenterTooltip({
       onMouseLeave={onMouseLeave}
     >
       <div className="px-4 py-2 rounded-2xl bg-white border-2 border-indigo-100 shadow-xl whitespace-nowrap">
-        <div className="text-xs font-extrabold text-indigo-400">🌟 你的决策问题</div>
-        <div className="text-xs text-gray-400 mt-0.5">所有观点围绕你的问题展开</div>
+        <div className="text-xs font-extrabold text-indigo-400">🌟 认知空间中心</div>
+        <div className="text-xs text-gray-400 mt-0.5 max-w-[240px] truncate">{query}</div>
       </div>
     </div>
   )

@@ -60,6 +60,7 @@ def _agent_from_db(row: AgentDB) -> "Agent":
         confidence=row.confidence or 0.8,
         domain=row.domain or "",
         summary=row.summary or "",
+        parent_id=row.parent_id,
     )
 
 
@@ -152,6 +153,7 @@ def save_space(space: Space) -> None:
                 "confidence": agent.confidence,
                 "authority": pos.authority,
                 "novelty": pos.novelty,
+                "parent_id": agent.parent_id,
             }
             if agent_row:
                 for k, v in data.items():
@@ -180,6 +182,43 @@ def get_space(space_id: str) -> Optional[Space]:
         agents = session.query(AgentDB).filter_by(space_id=space_id).all()
         space.agents = [_agent_from_db(a) for a in agents]
         return space
+    finally:
+        try:
+            next(session_gen, None)
+        except StopIteration:
+            pass
+
+
+def add_agents_to_space(space_id: str, agents: list["Agent"]) -> None:
+    """Append new agents to an existing space (used by expand)."""
+    session_gen = get_db_session()
+    session = next(session_gen)
+    try:
+        existing_ids = {
+            r.agent_id for r in
+            session.query(AgentDB).filter_by(space_id=space_id).all()
+        }
+        for agent in agents:
+            if agent.agent_id in existing_ids:
+                continue
+            pos = agent.position
+            session.add(AgentDB(
+                space_id=space_id,
+                agent_id=agent.agent_id,
+                name=agent.name,
+                persona=agent.persona,
+                domain=agent.domain,
+                summary=agent.summary,
+                stance=agent.stance.value if isinstance(agent.stance, Enum) else agent.stance,
+                confidence=agent.confidence,
+                authority=pos.authority,
+                novelty=pos.novelty,
+                parent_id=agent.parent_id,
+            ))
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         try:
             next(session_gen, None)

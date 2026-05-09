@@ -55,6 +55,12 @@ export default function SpacePage() {
     }
   }
 
+  const handleExpandAgent = (agentId: string) => {
+    setSelectedAgent(agentId)
+    setViewMode('focus')
+    setAgentClickCount((c) => c + 1)
+  }
+
   const handleBackToGlobal = () => {
     setSelectedAgent(null)
     setViewMode('global')
@@ -104,6 +110,7 @@ export default function SpacePage() {
           selectedAgent={selectedAgent}
           viewMode={viewMode}
           onBackToGlobal={handleBackToGlobal}
+          onExpandAgent={handleExpandAgent}
         />
 
         {selectedAgent && isFocus && (

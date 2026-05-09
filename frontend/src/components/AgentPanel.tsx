@@ -11,9 +11,11 @@ import {
   Users,
   ExternalLink,
   Loader2,
+  GitBranch,
 } from 'lucide-react'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
+import type { AgentExpandPayload } from '../api-types'
 import { useDebateStream } from '../hooks/useDebateStream'
 import StreamTurnCard from './StreamTurnCard'
 import type { Edge, Agent, ExternalUser, ExternalQuestion } from '../api-types'
@@ -50,8 +52,10 @@ interface Props {
 }
 
 export default function AgentPanel({ agentId, onClose }: Props) {
-  const { state } = useSpaceState()
+  const { state, dispatch } = useSpaceState()
   const [page, setPage] = useState<PanelPage>('profile')
+  const [expandLoading, setExpandLoading] = useState(false)
+  const [expandHint, setExpandHint] = useState('')
   const [selectedEdgeForDebate, setSelectedEdgeForDebate] = useState<Edge | null>(null)
   const [clusterAgentId, setClusterAgentId] = useState<string | null>(null)
 
@@ -122,6 +126,25 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     start(space.space_id, edge.edge_id, 2)
   }
 
+  async function handleExpand() {
+    if (!space || !agent || agentId === USER_AGENT_ID) return
+    setExpandLoading(true)
+    try {
+      const req: AgentExpandPayload = {
+        query_hint: expandHint || `深入探讨 ${agent.name} 的观点`,
+        num_agents: 2,
+      }
+      const updatedSpace = await api.expandAgent(space.space_id, agent.agent_id, req)
+      dispatch({ type: 'SET_SPACE', payload: updatedSpace })
+      setExpandHint('')
+    } catch (err) {
+      console.error('Expand failed:', err)
+      alert('展开节点失败，请重试')
+    } finally {
+      setExpandLoading(false)
+    }
+  }
+
   async function loadClusterData(domain: string, query: string) {
     setExternalDataLoading(true)
     try {
@@ -154,7 +177,18 @@ export default function AgentPanel({ agentId, onClose }: Props) {
       <div className="relative flex-1 overflow-hidden">
         {/* Profile */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'profile' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <ProfileContent agent={agent} relatedEdges={relatedEdges} getOpponent={getOpponent} onDebate={handleDebate} onClose={onClose} />
+          <ProfileContent
+            agent={agent}
+            relatedEdges={relatedEdges}
+            getOpponent={getOpponent}
+            onDebate={handleDebate}
+            onClose={onClose}
+            expandHint={expandHint}
+            setExpandHint={setExpandHint}
+            expandLoading={expandLoading}
+            onExpand={handleExpand}
+            isUserAgent={agentId === USER_AGENT_ID}
+          />
         </div>
         {/* Debate */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-out ${page === 'debate' ? 'translate-x-0' : page === 'profile' ? 'translate-x-full' : '-translate-x-full'}`}>
@@ -190,12 +224,22 @@ function ProfileContent({
   getOpponent,
   onDebate,
   onClose,
+  expandHint,
+  setExpandHint,
+  expandLoading,
+  onExpand,
+  isUserAgent,
 }: {
   agent: Agent
   relatedEdges: Edge[]
   getOpponent: (edge: Edge) => Agent | null
   onDebate: (edge: Edge) => void
   onClose: () => void
+  expandHint: string
+  setExpandHint: (v: string) => void
+  expandLoading: boolean
+  onExpand: () => void
+  isUserAgent: boolean
 }) {
   return (
     <>
@@ -230,6 +274,33 @@ function ProfileContent({
             <p className="text-xs text-gray-400 font-bold mb-1">核心观点</p>
             <p className="text-sm text-gray-700 leading-relaxed font-medium bg-indigo-50 rounded-xl p-3">{agent.summary}</p>
           </div>
+
+          {/* Expand section */}
+          {!isUserAgent && (
+            <div className="mt-4 pt-4 border-t border-indigo-50">
+              <p className="text-xs text-gray-400 font-bold mb-2">展开探索</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={expandHint}
+                  onChange={(e) => setExpandHint(e.target.value)}
+                  placeholder={`深入探讨 ${agent.name} 的观点...`}
+                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-indigo-100 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  disabled={expandLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && onExpand()}
+                />
+                <button
+                  onClick={onExpand}
+                  disabled={expandLoading}
+                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all"
+                >
+                  {expandLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
+                  展开
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1.5">基于此角色生成新的关联视角</p>
+            </div>
+          )}
         </div>
 
         <div className="p-5">

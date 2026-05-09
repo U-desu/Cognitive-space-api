@@ -52,6 +52,23 @@ def init_database():
     # Create all tables
     Base.metadata.create_all(bind=engine)
 
+    # Migrate: add parent_id column to agents if not exists (backward compat)
+    with engine.connect() as conn:
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'core'
+                      AND table_name = 'agents'
+                      AND column_name = 'parent_id'
+                ) THEN
+                    ALTER TABLE core.agents ADD COLUMN parent_id VARCHAR(20);
+                END IF;
+            END $$;
+        """))
+        conn.commit()
+
     print("Database initialized successfully.")
     print("Schemas: core, auth, aggregator")
     print("Tables created in core: spaces, agents, edges, debates, trajectories, trajectory_events")

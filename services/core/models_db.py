@@ -43,6 +43,7 @@ class AgentDB(Base):
     authority = Column(Float)
     novelty = Column(Float)
     embedding = Column(PG_ARRAY(Float))
+    parent_id = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

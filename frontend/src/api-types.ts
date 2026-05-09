@@ -10,6 +10,7 @@ export interface Agent {
   confidence?: number
   domain?: string
   summary?: string
+  parent_id?: string
 }
 
 export interface Position {
@@ -144,6 +145,23 @@ export interface HotQuestionPreset {
 }
 
 // ── Auth types ──
+
+export interface ExpandAgentRequest {
+  query_hint: string
+  num_agents: number
+  user_context?: Record<string, unknown>
+}
+
+export interface ExpandAgentResponse {
+  parent_agent_id: string
+  new_agents: Agent[]
+}
+
+/** 前端调用 Gateway expand 端点时发送的简化请求体 */
+export interface AgentExpandPayload {
+  query_hint: string
+  num_agents: number
+}
 
 export interface User {
   user_id: string
