@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
-import SpaceScene from './SpaceScene'
+import UniverseScene from '../scene/UniverseScene'
 import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
@@ -105,7 +105,7 @@ export default function SpacePage() {
       <MetricsHUD />
 
       <main className="relative flex-1" style={{ height: 'calc(100vh - 120px)' }}>
-        <SpaceScene
+        <UniverseScene
           onAgentClick={handleAgentClick}
           selectedAgent={selectedAgent}
           viewMode={viewMode}
