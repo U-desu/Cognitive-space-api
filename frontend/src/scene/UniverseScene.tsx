@@ -1,6 +1,7 @@
-import { useState, Suspense } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useState, Suspense, useRef, useMemo } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { Stars, Text } from '@react-three/drei'
+import * as THREE from 'three'
 import { useSpaceState } from '../store/SpaceContext'
 import { useLayout3D, useChildrenMap } from './useLayout3D'
 import NodeMesh from './NodeMesh'
@@ -42,6 +43,21 @@ export default function UniverseScene({
   const positions = useLayout3D(agents)
   const childrenMap = useChildrenMap(agents)
 
+  // Dynamic camera distance based on node bounding sphere
+  const cameraDistance = useMemo(() => {
+    let maxDist = 0
+    for (const agent of agents) {
+      const pos = positions.get(agent.agent_id)
+      if (pos) {
+        const dist = Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+        maxDist = Math.max(maxDist, dist)
+      }
+    }
+    // Ensure all nodes are visible: distance = maxDist * 1.8
+    // Minimum 35 to avoid being too close when few nodes
+    return Math.max(35, maxDist * 1.8)
+  }, [agents, positions])
+
   // Target position for camera focus
   const targetPosition: [number, number, number] | null =
     selectedAgent && selectedAgent !== USER_AGENT_ID
@@ -76,7 +92,7 @@ export default function UniverseScene({
       </div>
 
       <Canvas
-        camera={{ position: [80, 40, 80], fov: 60, near: 0.1, far: 1000 }}
+        camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl }) => {
           gl.setClearColor('#080816')
@@ -104,17 +120,18 @@ export default function UniverseScene({
             <sphereGeometry args={[2.5, 32, 32]} />
             <meshBasicMaterial color={CENTER_COLOR} transparent opacity={0.15} />
           </mesh>
-          <Text
-            position={[0, -4.5, 0]}
-            fontSize={2.5}
-            color="white"
-            anchorX="center"
-            anchorY="top"
-            outlineWidth={0.1}
-            outlineColor="#000000"
-          >
-            🌟 {centerLabel}
-          </Text>
+          <CenterLabel position={[0, -4.5, 0]}>
+            <Text
+              fontSize={2.5}
+              color="white"
+              anchorX="center"
+              anchorY="top"
+              outlineWidth={0.1}
+              outlineColor="#000000"
+            >
+              🌟 {centerLabel}
+            </Text>
+          </CenterLabel>
         </group>
 
         {/* Agent nodes */}
@@ -219,5 +236,20 @@ function AgentTooltip({ agent }: { agent: Agent }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Custom billboard for center label: always faces camera */
+function CenterLabel({ children, position }: { children: React.ReactNode; position: [number, number, number] }) {
+  const groupRef = useRef<THREE.Group>(null)
+  useFrame(({ camera }) => {
+    if (groupRef.current) {
+      groupRef.current.quaternion.copy(camera.quaternion)
+    }
+  })
+  return (
+    <group ref={groupRef} position={position}>
+      {children}
+    </group>
   )
 }

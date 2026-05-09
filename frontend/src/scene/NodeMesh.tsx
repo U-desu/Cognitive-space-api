@@ -180,7 +180,7 @@ function LabelGroup({ children, position }: { children: React.ReactNode; positio
   const groupRef = useRef<THREE.Group>(null)
   useFrame(({ camera }) => {
     if (groupRef.current) {
-      groupRef.current.lookAt(camera.position)
+      groupRef.current.quaternion.copy(camera.quaternion)
     }
   })
   return (

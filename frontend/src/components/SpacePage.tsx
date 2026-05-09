@@ -90,9 +90,13 @@ export default function SpacePage() {
     <div className="min-h-screen flex flex-col">
       {/* Header — no back button here anymore */}
       <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
-        <h2 className="text-base font-bold text-gray-700 truncate max-w-xl flex-1">
-          {state.space.query}
-        </h2>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-xs font-bold text-indigo-400 shrink-0">认知空间</span>
+          <span className="text-gray-300">·</span>
+          <h2 className="text-sm font-bold text-gray-700 truncate">
+            {state.space.query}
+          </h2>
+        </div>
         <button
           onClick={() => setShowShare(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"
