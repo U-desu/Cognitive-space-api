@@ -505,7 +505,7 @@ async def expand_agent(
     space_id: str,
     agent_id: str,
     request: AgentExpandPayload,
-    user: dict = Depends(require_user),
+    user: Optional[dict] = Depends(get_current_user),
 ):
     """Orchestrated agent expansion:
     1. Fetch space + parent agent from core
