@@ -2,6 +2,7 @@ from fastapi import Request, HTTPException, status
 from typing import Optional
 
 from services.gateway.auth.jwt import decode_token, COOKIE_NAME
+from services.gateway.auth.store import get_user
 
 
 async def get_current_user(request: Request) -> Optional[dict]:
@@ -11,6 +12,10 @@ async def get_current_user(request: Request) -> Optional[dict]:
         return None
     user_id = decode_token(token)
     if not user_id:
+        return None
+    # 验证用户是否真实存在于数据库中（防止旧/失效 Cookie 导致 500）
+    user = get_user(user_id)
+    if not user:
         return None
     return {"user_id": user_id}
 

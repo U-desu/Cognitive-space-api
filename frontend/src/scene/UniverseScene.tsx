@@ -47,41 +47,30 @@ export default function UniverseScene({
   const positions = useLayout3D(agents)
   const childrenMap = useChildrenMap(agents)
 
-  // Compute which nodes & edges should glow when a node is hovered
+  // Compute which nodes should glow when an agent is SELECTED.
+  // Hover no longer highlights nodes — only edges.
   const highlightSet = useMemo(() => {
     const set = new Set<string>()
-    if (!highlightedId) return set
 
-    if (highlightedId === USER_AGENT_ID) {
-      // Hovering center — highlight all root agents
-      for (const a of agents) {
-        if (!a.parent_id) set.add(a.agent_id)
-      }
-      return set
-    }
+    if (!selectedAgent || selectedAgent === USER_AGENT_ID) return set
 
-    // Highlight the hovered agent itself
-    set.add(highlightedId)
+    // Highlight the selected agent itself
+    set.add(selectedAgent)
 
     // Highlight its parent
-    const hovered = agents.find((a) => a.agent_id === highlightedId)
-    if (hovered?.parent_id) {
-      set.add(hovered.parent_id)
+    const selected = agents.find((a) => a.agent_id === selectedAgent)
+    if (selected?.parent_id) {
+      set.add(selected.parent_id)
     }
 
     // Highlight all its children
-    const children = childrenMap.get(highlightedId) || []
+    const children = childrenMap.get(selectedAgent) || []
     for (const child of children) {
       set.add(child.agent_id)
     }
 
-    // If it's a root, also imply center is related
-    if (hovered && !hovered.parent_id) {
-      set.add(USER_AGENT_ID)
-    }
-
     return set
-  }, [highlightedId, agents, childrenMap])
+  }, [selectedAgent, agents, childrenMap])
 
   // Dynamic camera distance based on node bounding sphere
   const cameraDistance = useMemo(() => {
@@ -249,7 +238,8 @@ export default function UniverseScene({
           const lineColor = isDark ? '#e2e8f0' : '#1e293b'
 
           const isLineHighlighted =
-            highlightedId === agent.agent_id || highlightedId === agent.parent_id
+            !selectedAgent &&
+            (highlightedId === agent.agent_id || highlightedId === agent.parent_id)
 
           return (
             <ConnectionLine
@@ -276,7 +266,8 @@ export default function UniverseScene({
             const opacity = isSel ? 0.2 : 0.08
 
             const isRootLineHighlighted =
-              highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID
+              !selectedAgent &&
+              (highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID)
 
             return (
               <ConnectionLine

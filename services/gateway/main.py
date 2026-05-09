@@ -41,6 +41,7 @@ from services.shared.models import (
     AgentExpandPayload,
 )
 from services.gateway.dependencies import get_current_user, require_user
+from typing import Optional
 from services.gateway.auth.jwt import create_access_token, COOKIE_NAME
 from services.gateway.auth.password_auth import register_user, authenticate_user
 from services.gateway.auth.github_oauth import get_github_authorize_url, handle_github_callback
@@ -81,11 +82,12 @@ async def _get(service_url: str, path: str):
 # ── Orchestrated: Space Creation ──
 
 @app.post("/spaces", response_model=Space)
-async def create_space(request: CreateSpaceRequest, user: dict = Depends(require_user)):
+async def create_space(request: CreateSpaceRequest, user: Optional[dict] = Depends(get_current_user)):
     """Orchestrated space creation:
     1. Call generator to create agents
     2. Construct Space object
     3. Store in core service
+    4. Link to user (if logged in)
     """
     # 1. Generate agents
     gen_resp = await _post(
@@ -111,14 +113,15 @@ async def create_space(request: CreateSpaceRequest, user: dict = Depends(require
             complexity="high" if len(agents) > 4 else "medium",
             estimated_nodes=len(agents),
         ),
-        user_id=user["user_id"],
+        user_id=user["user_id"] if user else None,
     )
 
     # 3. Store in core
     await _post(config.CORE_URL, "/spaces/ingest", space.model_dump())
 
-    # 4. Link to user
-    link_space_to_user(user["user_id"], space_id)
+    # 4. Link to user (only if logged in)
+    if user:
+        link_space_to_user(user["user_id"], space_id)
 
     return space
 
