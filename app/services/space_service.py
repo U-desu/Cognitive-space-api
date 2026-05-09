@@ -1,4 +1,5 @@
 import uuid
+import copy
 from app.models.space import Space, CreateSpaceRequest, Dimension, SpaceMetadata
 from app.models.agent import Agent
 from app.services import llm_client
@@ -54,5 +55,29 @@ def create_space(request: CreateSpaceRequest) -> Space:
             space_type="general",
             complexity="high" if len(agents) > 4 else "medium",
             estimated_nodes=len(agents),
+        ),
+    )
+
+
+def clone_space(query: str, source_space: Space) -> Space:
+    """Clone a space with new id, reusing the same agents.
+
+    Used when a similar historical query is detected — avoids duplicate LLM calls.
+    """
+    new_space_id = f"space_{uuid.uuid4().hex[:8]}"
+    # Deep copy agents so mutations on the new space don't affect the original
+    cloned_agents = [Agent(**a.model_dump()) for a in source_space.agents]
+    return Space(
+        space_id=new_space_id,
+        query=query,
+        dimensions={
+            "x": Dimension(name="authority", label="权威度", range=[0.0, 1.0]),
+            "y": Dimension(name="novelty", label="创新度", range=[0.0, 1.0]),
+        },
+        agents=cloned_agents,
+        metadata=SpaceMetadata(
+            space_type="general",
+            complexity="high" if len(cloned_agents) > 4 else "medium",
+            estimated_nodes=len(cloned_agents),
         ),
     )

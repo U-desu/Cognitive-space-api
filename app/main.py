@@ -10,7 +10,7 @@ from app import store
 from app.models.agent import Agent
 from app.models.space import Space
 from app.models.debate import DebateRequest
-from app.services import debate_service, llm_client
+from app.services import debate_service, llm_client, query_cache
 
 # Re-use gateway auth modules in monolithic mode
 from services.shared.models import UserRegisterRequest, UserLoginRequest
@@ -86,6 +86,19 @@ async def auth_me(user: Optional[dict] = Depends(get_current_user)):
         return {"user": None}
     full_user = get_user(user["user_id"])
     return {"user": full_user.model_dump() if full_user else None}
+
+
+# ── Compute Similarity ──
+
+@app.post("/compute/similarity")
+async def compute_similarity(payload: dict):
+    """Compute cosine similarity between two queries."""
+    query_a = payload.get("query_a", "")
+    query_b = payload.get("query_b", "")
+    if not query_a or not query_b:
+        raise HTTPException(status_code=400, detail="Both query_a and query_b are required")
+    similarity = query_cache.compute_similarity(query_a, query_b)
+    return {"similarity": round(similarity, 4)}
 
 
 # ── Aggregator Presets ──

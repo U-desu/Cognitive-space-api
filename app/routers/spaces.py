@@ -4,7 +4,7 @@ from app.models.space import CreateSpaceRequest, Space
 from app.models.edge import Edge, SpaceStats
 from app.models.debate import Debate, DebateRequest
 from app.models.trajectory import Trajectory, TrajectoryPoint
-from app.services import space_service, edge_service, debate_service, trajectory_service
+from app.services import space_service, edge_service, debate_service, trajectory_service, query_cache
 from app import store
 
 router = APIRouter(prefix="/spaces", tags=["spaces"])
@@ -12,8 +12,21 @@ router = APIRouter(prefix="/spaces", tags=["spaces"])
 
 @router.post("", response_model=Space)
 def create_space(request: CreateSpaceRequest):
+    # Check for similar historical query to avoid duplicate LLM calls
+    similar_space_id = query_cache.find_similar_space(request.query)
+    if similar_space_id:
+        hist_space = store.get_space(similar_space_id)
+        if hist_space:
+            # Reuse agents from historical space with a new space_id
+            new_space = space_service.clone_space(request.query, hist_space)
+            store.save_space(new_space)
+            query_cache.save_query(request.query, new_space.space_id)
+            return new_space
+
+    # No similar query found — generate fresh agents via LLM
     space = space_service.create_space(request)
     store.save_space(space)
+    query_cache.save_query(request.query, space.space_id)
     return space
 
 

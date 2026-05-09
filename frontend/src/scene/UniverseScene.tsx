@@ -188,28 +188,30 @@ export default function UniverseScene({
           )
         })}
 
-        {/* Parent -> child lines */}
+        {/* Parent -> child lines — dashed white to distinguish from conflict edges */}
         {agents.map((agent) => {
           if (!agent.parent_id) return null
           const from = positions.get(agent.parent_id)
           const to = positions.get(agent.agent_id)
           if (!from || !to) return null
-          const color = STANCE_COLORS[agent.stance] || '#94a3b8'
           const isSel = selectedAgent === agent.agent_id
-          const opacity = isSel ? 0.6 : 0.25
+          const isHov = hoveredAgent === agent.agent_id
+          const opacity = isSel ? 0.7 : isHov ? 0.5 : 0.35
 
           return (
             <ConnectionLine
               key={`line-${agent.agent_id}`}
               from={from}
               to={to}
-              color={color}
+              color="#ffffff"
               opacity={opacity}
+              dashed
+              dashScale={1.5}
             />
           )
         })}
 
-        {/* Optional: root -> center dashed lines (subtle) */}
+        {/* Root -> center lines — subtle stance-colored solid lines */}
         {agents
           .filter((a) => !a.parent_id)
           .map((agent) => {
@@ -217,7 +219,7 @@ export default function UniverseScene({
             if (!pos) return null
             const rootColor = STANCE_COLORS[agent.stance] || '#94a3b8'
             const isSel = selectedAgent === agent.agent_id
-            const opacity = isSel ? 0.25 : 0.1
+            const opacity = isSel ? 0.2 : 0.08
 
             return (
               <ConnectionLine

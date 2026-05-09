@@ -112,6 +112,14 @@ export default function NodeMesh({
         </mesh>
       )}
 
+      {/* Child indicator ring — white border for child agents */}
+      {isChild && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.5, 0.04, 16, 64]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.6} />
+        </mesh>
+      )}
+
       {/* Child count badge */}
       {hasChildren && (
         <group position={[1.4, 1.0, 0]}>
