@@ -180,6 +180,7 @@ export default function UniverseScene({
               isHovered={isHov}
               hasChildren={childList.length > 0}
               childCount={childList.length}
+              darkBg={isDark}
               onClick={() => onAgentClick(agent.agent_id)}
               onPointerOver={() => setHoveredAgent(agent.agent_id)}
               onPointerOut={() => setHoveredAgent(null)}
@@ -188,7 +189,7 @@ export default function UniverseScene({
           )
         })}
 
-        {/* Parent -> child lines — dashed white to distinguish from conflict edges */}
+        {/* Parent -> child lines — dashed, theme-aware color for contrast */}
         {agents.map((agent) => {
           if (!agent.parent_id) return null
           const from = positions.get(agent.parent_id)
@@ -196,17 +197,19 @@ export default function UniverseScene({
           if (!from || !to) return null
           const isSel = selectedAgent === agent.agent_id
           const isHov = hoveredAgent === agent.agent_id
-          const opacity = isSel ? 0.7 : isHov ? 0.5 : 0.35
+          const opacity = isSel ? 0.9 : isHov ? 0.75 : 0.6
+          // High contrast against current background
+          const lineColor = isDark ? '#e2e8f0' : '#1e293b'
 
           return (
             <ConnectionLine
               key={`line-${agent.agent_id}`}
               from={from}
               to={to}
-              color="#ffffff"
+              color={lineColor}
               opacity={opacity}
               dashed
-              dashScale={1.5}
+              dashScale={2.5}
             />
           )
         })}

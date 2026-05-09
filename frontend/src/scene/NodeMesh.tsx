@@ -23,6 +23,7 @@ interface NodeMeshProps {
   isHovered: boolean
   hasChildren: boolean
   childCount: number
+  darkBg?: boolean
   onClick: () => void
   onPointerOver: () => void
   onPointerOut: () => void
@@ -36,6 +37,7 @@ export default function NodeMesh({
   isHovered,
   hasChildren,
   childCount,
+  darkBg = false,
   onClick,
   onPointerOver,
   onPointerOut,
@@ -112,11 +114,11 @@ export default function NodeMesh({
         </mesh>
       )}
 
-      {/* Child indicator ring — white border for child agents */}
+      {/* Child indicator ring — theme-aware for contrast */}
       {isChild && (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[1.5, 0.04, 16, 64]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.6} />
+          <torusGeometry args={[1.5, 0.06, 16, 64]} />
+          <meshBasicMaterial color={darkBg ? '#e2e8f0' : '#1e293b'} transparent opacity={0.8} />
         </mesh>
       )}
 
