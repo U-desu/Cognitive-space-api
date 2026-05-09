@@ -249,7 +249,7 @@ export default function UniverseScene({
           const lineColor = isDark ? '#e2e8f0' : '#1e293b'
 
           const isLineHighlighted =
-            highlightSet.has(agent.agent_id) || highlightSet.has(agent.parent_id)
+            highlightedId === agent.agent_id || highlightedId === agent.parent_id
 
           return (
             <ConnectionLine
@@ -276,7 +276,7 @@ export default function UniverseScene({
             const opacity = isSel ? 0.2 : 0.08
 
             const isRootLineHighlighted =
-              highlightSet.has(agent.agent_id) || highlightSet.has(USER_AGENT_ID)
+              highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID
 
             return (
               <ConnectionLine
