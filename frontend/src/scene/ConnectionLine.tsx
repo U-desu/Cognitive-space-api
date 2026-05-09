@@ -9,6 +9,7 @@ interface ConnectionLineProps {
   dashed?: boolean
   dashScale?: number
   lineWidth?: number
+  isNetworkHighlighted?: boolean
 }
 
 export default function ConnectionLine({
@@ -19,6 +20,7 @@ export default function ConnectionLine({
   dashed = false,
   dashScale = 1,
   lineWidth = 1,
+  isNetworkHighlighted = false,
 }: ConnectionLineProps) {
   const lineRef = useRef<any>(null)
 
@@ -32,6 +34,9 @@ export default function ConnectionLine({
       lineRef.current.computeLineDistances()
     }
   }, [dashed, points])
+
+  // Boost opacity when this line is part of the hovered network
+  const finalOpacity = isNetworkHighlighted ? Math.min(1, opacity + 0.35) : opacity
 
   return (
     <line ref={lineRef}>
@@ -47,7 +52,7 @@ export default function ConnectionLine({
         <lineDashedMaterial
           color={color}
           transparent
-          opacity={opacity}
+          opacity={finalOpacity}
           depthWrite={false}
           dashSize={0.8 * dashScale}
           gapSize={0.5 * dashScale}
@@ -58,7 +63,7 @@ export default function ConnectionLine({
         <lineBasicMaterial
           color={color}
           transparent
-          opacity={opacity}
+          opacity={finalOpacity}
           depthWrite={false}
           linewidth={lineWidth}
         />

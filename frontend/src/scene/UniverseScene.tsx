@@ -37,6 +37,7 @@ export default function UniverseScene({
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [theme, setTheme] = useState<Theme>(getSavedTheme)
 
   const space = state.space
@@ -45,6 +46,42 @@ export default function UniverseScene({
 
   const positions = useLayout3D(agents)
   const childrenMap = useChildrenMap(agents)
+
+  // Compute which nodes & edges should glow when a node is hovered
+  const highlightSet = useMemo(() => {
+    const set = new Set<string>()
+    if (!highlightedId) return set
+
+    if (highlightedId === USER_AGENT_ID) {
+      // Hovering center — highlight all root agents
+      for (const a of agents) {
+        if (!a.parent_id) set.add(a.agent_id)
+      }
+      return set
+    }
+
+    // Highlight the hovered agent itself
+    set.add(highlightedId)
+
+    // Highlight its parent
+    const hovered = agents.find((a) => a.agent_id === highlightedId)
+    if (hovered?.parent_id) {
+      set.add(hovered.parent_id)
+    }
+
+    // Highlight all its children
+    const children = childrenMap.get(highlightedId) || []
+    for (const child of children) {
+      set.add(child.agent_id)
+    }
+
+    // If it's a root, also imply center is related
+    if (hovered && !hovered.parent_id) {
+      set.add(USER_AGENT_ID)
+    }
+
+    return set
+  }, [highlightedId, agents, childrenMap])
 
   // Dynamic camera distance based on node bounding sphere
   const cameraDistance = useMemo(() => {
@@ -130,10 +167,13 @@ export default function UniverseScene({
             e.stopPropagation()
             onBackToGlobal()
           }}
-          onPointerOver={() => {
+          onPointerOver={(e) => {
+            e.stopPropagation()
+            setHighlightedId(USER_AGENT_ID)
             document.body.style.cursor = 'pointer'
           }}
           onPointerOut={() => {
+            setHighlightedId(null)
             document.body.style.cursor = 'auto'
           }}
         >
@@ -181,9 +221,16 @@ export default function UniverseScene({
               hasChildren={childList.length > 0}
               childCount={childList.length}
               darkBg={isDark}
+              isNetworkHighlighted={highlightSet.has(agent.agent_id)}
               onClick={() => onAgentClick(agent.agent_id)}
-              onPointerOver={() => setHoveredAgent(agent.agent_id)}
-              onPointerOut={() => setHoveredAgent(null)}
+              onPointerOver={() => {
+                setHoveredAgent(agent.agent_id)
+                setHighlightedId(agent.agent_id)
+              }}
+              onPointerOut={() => {
+                setHoveredAgent(null)
+                setHighlightedId(null)
+              }}
               onExpand={onExpandAgent ? () => onExpandAgent(agent.agent_id) : undefined}
             />
           )
@@ -201,6 +248,9 @@ export default function UniverseScene({
           // High contrast against current background
           const lineColor = isDark ? '#e2e8f0' : '#1e293b'
 
+          const isLineHighlighted =
+            highlightSet.has(agent.agent_id) || highlightSet.has(agent.parent_id)
+
           return (
             <ConnectionLine
               key={`line-${agent.agent_id}`}
@@ -210,6 +260,7 @@ export default function UniverseScene({
               opacity={opacity}
               dashed
               dashScale={2.5}
+              isNetworkHighlighted={isLineHighlighted}
             />
           )
         })}
@@ -224,6 +275,9 @@ export default function UniverseScene({
             const isSel = selectedAgent === agent.agent_id
             const opacity = isSel ? 0.2 : 0.08
 
+            const isRootLineHighlighted =
+              highlightSet.has(agent.agent_id) || highlightSet.has(USER_AGENT_ID)
+
             return (
               <ConnectionLine
                 key={`root-line-${agent.agent_id}`}
@@ -231,6 +285,7 @@ export default function UniverseScene({
                 to={pos}
                 color={rootColor}
                 opacity={opacity}
+                isNetworkHighlighted={isRootLineHighlighted}
               />
             )
           })}

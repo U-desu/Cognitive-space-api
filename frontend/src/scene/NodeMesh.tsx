@@ -24,6 +24,7 @@ interface NodeMeshProps {
   hasChildren: boolean
   childCount: number
   darkBg?: boolean
+  isNetworkHighlighted?: boolean
   onClick: () => void
   onPointerOver: () => void
   onPointerOut: () => void
@@ -38,6 +39,7 @@ export default function NodeMesh({
   hasChildren,
   childCount,
   darkBg = false,
+  isNetworkHighlighted = false,
   onClick,
   onPointerOver,
   onPointerOut,
@@ -86,7 +88,9 @@ export default function NodeMesh({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isSelected ? 0.6 : isHovered ? 0.4 : 0.2}
+          emissiveIntensity={
+            isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
+          }
           roughness={0.3}
           metalness={0.1}
           transparent
