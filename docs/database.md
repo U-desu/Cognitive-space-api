@@ -143,7 +143,7 @@ CREATE TABLE core.agents (
 | `authority` | FLOAT | 权威度坐标 0-1 |
 | `novelty` | FLOAT | 创新度坐标 0-1 |
 | `parent_id` | VARCHAR(50) | 父 Agent ID，表示由该 Agent 展开生成 |
-| `embedding` | FLOAT[] | 语义向量数组（mock=37维, local=384, openai=1536） |
+| `embedding` | FLOAT[] | 语义向量数组（keyword=37维, local=384, openai=1536） |
 
 **约束说明**：
 - `parent_id` 为自引用外键：`REFERENCES core.agents(agent_id) ON DELETE SET NULL`
@@ -304,7 +304,7 @@ CREATE TABLE auth.user_spaces (
 
 ## Schema: aggregator（预留）
 
-当前 Aggregator Service 使用内存 mock 数据，Schema 已创建但表为空。
+当前 Aggregator Service 使用内存静态数据，Schema 已创建但表为空。
 
 预留表结构：
 

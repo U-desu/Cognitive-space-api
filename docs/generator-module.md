@@ -57,16 +57,16 @@ Generator Service 是 Cognitive Space 的**内容生成引擎**，负责所有�
 
 ### 1. LLM Client (`llm_client.py`)
 
-**职责**：底层 LLM 调用封装，处理 provider 配置、mock 模式、embedding 缓存。
+**职责**：底层 LLM 调用封装，处理 provider 配置、embedding 缓存。
 
 **架构**：
 ```
 chat_completion(messages, json_mode=False)
-├── MOCK_LLM=true  → _mock_chat_completion()
+├── 已移除
 │   ├── 辩论提示词 → DEBATE_PRESETS[query_match]
 │   └── Agent 提示词 → QUESTION_AGENT_PRESETS[query_match]
 │
-└── MOCK_LLM=false → OpenAI SDK
+└── OpenAI SDK
     ├── API_KEY 未配置 → RuntimeError
     ├── json_mode=true → response_format={"type": "json_object"}
     └── 异常时 → fallback_debate()（仅辩论场景）
@@ -75,7 +75,7 @@ chat_completion(messages, json_mode=False)
 **Mock 模式**：
 - 通过关键词匹配（如"程序""取代"→程序员预设）选择对应的预设数据
 - 辩论预设支持动态替换 agent_id（如将 `agent_001` 替换为实际参与者 ID）
-- Embedding mock：MD5 hash → 归一化向量（确定性，保证可重复性）
+- Embedding：OpenAI API（带缓存）
 
 **Embedding 缓存**：
 ```python
@@ -342,7 +342,7 @@ class DebateAgent:
 
 ---
 
-### 6. Mock 数据层 (`mock_data.py`)
+### 6. Preset 数据层 (`preset_data.py`)
 
 **设计目标**：无 API key 时提供高质量的确定性演示数据。
 
@@ -462,7 +462,7 @@ Generator Service 从 `services/shared/config.py` 读取配置：
 | `API_KEY` | - | 根据 provider 自动选择 `OPENAI_API_KEY` 或 `DEEPSEEK_API_KEY` |
 | `API_BASE_URL` | - | 根据 provider 自动选择 |
 | `MODEL_NAME` | `gpt-4o-mini` / `deepseek-chat` | 模型名称 |
-| `MOCK_LLM` | `false` | `true` = 使用 mock 数据（无 API key 必需） |
+| 已移除 | - | 运行时必须配置 LLM API key |
 | `EMBED_MODEL` | `text-embedding-3-small` | Embedding 模型 |
 
 ---

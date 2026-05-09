@@ -86,7 +86,7 @@ export default function SpaceCanvas({ onEdgeClick }: Props) {
         rounds: 2,
       })
     } catch {
-      // Mock mode fallback
+      // Error fallback
     }
     onEdgeClick(edgeId)
   }

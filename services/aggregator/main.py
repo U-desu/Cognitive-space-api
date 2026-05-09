@@ -5,7 +5,7 @@ Responsibility:
 - Aggregate external data (Zhihu users, questions)
 - Provide preset data (hot questions, domain labels)
 
-Current: mock data (migrated from frontend)
+Current: static data (migrated from frontend)
 Future:
 - Zhihu API integration with rate limiting
 - Elasticsearch for semantic question/user search

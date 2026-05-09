@@ -3,10 +3,9 @@
 Supports three backends:
 - local: sentence-transformers (requires `pip install sentence-transformers`)
 - openai: OpenAI embedding API (requires OPENAI_API_KEY)
-- mock: domain-keyword based semantic vectors (default, no dependencies)
+- keyword: domain-keyword based semantic vectors (default, no dependencies)
 
-The mock backend is a significant improvement over the previous MD5-hash
-pseudo-vectors. It uses domain keyword matching + jieba segmentation to
+The keyword backend uses domain keyword matching + jieba segmentation to
 produce vectors with actual semantic distinguishability.
 """
 
@@ -19,10 +18,10 @@ from services.shared import config
 _local_model = None
 _openai_client = None
 
-# ── Domain keyword dictionary for mock semantic vectors ──
+# ── Domain keyword dictionary for keyword semantic vectors ──
 # Each domain has keywords that distinguish it from others.
 # This creates real semantic separation between agents of different domains.
-# ── Domain keyword dictionary for mock semantic vectors ──
+# ── Domain keyword dictionary for keyword semantic vectors ──
 # Each domain has keywords that distinguish it from others.
 # Plus a set of UNIVERSAL keywords that create cross-domain overlap
 # to avoid complete orthogonality between different domains.
@@ -75,10 +74,10 @@ _DOMAINS = list(_DOMAIN_KEYWORDS.keys())
 _N_DOMAINS = len(_DOMAINS)
 
 
-def _mock_embed_semantic(text: str) -> list[float]:
-    """Improved mock embedding using domain keyword matching.
+def keyword_embed(text: str) -> list[float]:
+    """Rule-based embedding using domain keyword matching.
     
-    This produces vectors with real semantic distinguishability:
+    Produces vectors with real semantic distinguishability:
     - Agents from similar domains will have high similarity
     - Agents from different domains will have low similarity
     
@@ -159,7 +158,7 @@ def embed(text: str) -> list[float]:
     Backend is selected via COMPUTE_EMBED_BACKEND env var:
     - "local":   sentence-transformers (best quality, no API needed)
     - "openai":  OpenAI API (high quality, requires API key)
-    - "mock":    domain-keyword vectors (default, fast, has semantic meaning)
+    - "keyword": domain-keyword vectors (default, fast, has semantic meaning)
     """
     backend = config.COMPUTE_EMBED_BACKEND.lower()
 
@@ -174,8 +173,8 @@ def embed(text: str) -> list[float]:
         resp = client.embeddings.create(model=model, input=text)
         return resp.data[0].embedding
 
-    else:  # "mock" or any unrecognized value
-        return _mock_embed_semantic(text)
+    else:  # "keyword" or any unrecognized value
+        return keyword_embed(text)
 
 
 def embed_batch(texts: list[str]) -> list[list[float]]:
@@ -194,4 +193,4 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
         return [d.embedding for d in resp.data]
 
     else:
-        return [_mock_embed_semantic(t) for t in texts]
+        return [keyword_embed(t) for t in texts]

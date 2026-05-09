@@ -107,7 +107,7 @@ Frontend POST /spaces/{id}/edges
       │    ──► a. 从 Core GET /spaces/{id} 获取完整 Space
       │    ──► b. 生成 embedding:
       │         texts = [f"{name}: {summary} {persona}"]
-      │         embedder: local / openai / mock (由 COMPUTE_EMBED_BACKEND 决定)
+      │         embedder: local / openai / keyword (由 COMPUTE_EMBED_BACKEND 决定)
       │    ──► c. 计算每对 Agent 的 cosine distance
       │    ──► d. 分类冲突:
       │         > 0.7 → fundamental (debate_recommended=true)

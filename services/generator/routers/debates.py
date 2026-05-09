@@ -230,6 +230,6 @@ async def generate_debate_stream(request: GenerateDebateRequest):
 @router.post("/fallback")
 def fallback_debate():
     """Return fallback debate when LLM is unavailable."""
-    from services.generator import mock_data
-    fb = mock_data.FALLBACK_DEBATES["default"]
+    from services.generator import preset_data
+    fb = preset_data.FALLBACK_DEBATES["default"]
     return fb

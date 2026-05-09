@@ -2,9 +2,9 @@
 
 Port: 8002
 Responsibility:
-- Generate Agent lists from user query (LLM / mock)
-- Generate Debate transcripts and synthesis (LLM / mock)
-- Generate text embeddings (OpenAI API / mock hash)
+- Generate Agent lists from user query (LLM / preset)
+- Generate Debate transcripts and synthesis (LLM / preset)
+- Generate text embeddings (OpenAI API / cached)
 
 Future cache layer (Redis):
 - embedding_cache: text_hash -> vector (TTL: permanent)

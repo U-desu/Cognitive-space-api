@@ -128,7 +128,7 @@ frontend/
 
 3. **Mock 模式兼容**：
    - 前端 `.env` 配置 `VITE_API_BASE_URL=http://localhost:8000`
-   - 启动顺序：先启动后端 `MOCK_LLM=true ./run_mock.sh`，再启动前端 `npm run dev`
+   - 启动顺序：先启动后端 `./start-services.sh`，再启动前端 `npm run dev`
 
 4. **类型契约**：
    - 所有 API 响应必须 `as` 成 `api-types.ts` 中的接口
@@ -166,7 +166,7 @@ frontend/
 ```bash
 # 1. 启动后端（已存在）
 cd /Users/zhihu/hackathon/cognitive-space-api
-MOCK_LLM=true ./run_mock.sh
+./start-services.sh
 
 # 2. 启动前端（新创建）
 cd /Users/zhihu/hackathon/cognitive-space-api/frontend

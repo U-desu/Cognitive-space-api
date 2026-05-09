@@ -4,7 +4,7 @@
 
 用法:
     cd /Users/zhihu/hackathon/cognitive-space-api
-    MOCK_LLM=true python3 scripts/export-schema.py
+    python3 scripts/export-schema.py
 
 输出:
     openapi.json  — 后端 API 唯一真相源（供前端类型生成）

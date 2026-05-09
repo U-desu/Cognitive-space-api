@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 from services.shared.models import HotQuestionPreset
-from services.aggregator.mock_data import HOT_QUESTIONS
+from services.aggregator.static_data import HOT_QUESTIONS
 
 router = APIRouter(prefix="/aggregator/presets", tags=["aggregator-presets"])
 

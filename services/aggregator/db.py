@@ -1,6 +1,6 @@
 """Aggregator Service database configuration (reserved).
 
-Current: all data is served from mock_data.py (memory).
+Current: all data is served from static_data.py (memory).
 Future: when USE_AGGREGATOR_DB=true, switch to PostgreSQL JSONB or MongoDB.
 
 Schema: aggregator (reserved in PostgreSQL)

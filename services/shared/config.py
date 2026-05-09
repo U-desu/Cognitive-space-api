@@ -30,13 +30,12 @@ else:
     MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
-MOCK_LLM = os.getenv("MOCK_LLM", "false").lower() == "true"
 
 # ── Compute Embedding Backend ──
-# "local"  -> sentence-transformers (requires: pip install sentence-transformers)
-# "openai" -> OpenAI API (requires: OPENAI_API_KEY)
-# "mock"   -> domain-keyword semantic vectors (default, no deps)
-COMPUTE_EMBED_BACKEND = os.getenv("COMPUTE_EMBED_BACKEND", "mock")
+# "local"   -> sentence-transformers (requires: pip install sentence-transformers)
+# "openai"  -> OpenAI API (requires: OPENAI_API_KEY)
+# "keyword" -> domain-keyword semantic vectors (default, no deps)
+COMPUTE_EMBED_BACKEND = os.getenv("COMPUTE_EMBED_BACKEND", "keyword")
 COMPUTE_LOCAL_MODEL = os.getenv("COMPUTE_LOCAL_MODEL", "all-MiniLM-L6-v2")
 COMPUTE_OPENAI_MODEL = os.getenv("COMPUTE_OPENAI_MODEL", "text-embedding-3-small")
 

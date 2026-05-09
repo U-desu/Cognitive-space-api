@@ -1,6 +1,6 @@
 """Mock data for Generator Service.
 
-This module contains all LLM mock data:
+This module contains all LLM preset data:
 - 40-role pool for agent generation
 - 3 question presets with fixed agent compositions
 - 3 debate presets with structured transcripts

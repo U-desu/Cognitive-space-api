@@ -1,7 +1,7 @@
 """Compute Service: Edge computation API.
 
 Computes conflict edges using real semantic embeddings.
-Embedding backend is pluggable (local/openai/mock) via COMPUTE_EMBED_BACKEND env var.
+Embedding backend is pluggable (local / openai / keyword) via COMPUTE_EMBED_BACKEND env var.
 """
 
 from fastapi import APIRouter

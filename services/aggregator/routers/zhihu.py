@@ -1,12 +1,12 @@
 """Aggregator Service: Zhihu data API.
 
-Provides mock external data previously stored in frontend.
+Provides static external data previously stored in frontend.
 Future: replace with real Zhihu API calls + cache.
 """
 
 from fastapi import APIRouter, Query
 from services.shared.models import ExternalUser, ExternalQuestion
-from services.aggregator.mock_data import ZHIHU_USERS, ZHIHU_QUESTIONS, DOMAIN_LABELS
+from services.aggregator.static_data import ZHIHU_USERS, ZHIHU_QUESTIONS, DOMAIN_LABELS
 
 router = APIRouter(prefix="/aggregator/zhihu", tags=["aggregator-zhihu"])
 

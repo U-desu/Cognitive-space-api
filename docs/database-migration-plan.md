@@ -22,7 +22,7 @@
 │  ──► 匹配到 3 个问题之一                                    │
 │                                                             │
 │  _QUESTION_AGENT_PRESETS[问题] ──► 固定 6 人角色组合        │
-│  _generate_mock_agents()                                    │
+│  _generate_preset_agents()                                    │
 │  ──► 从 _ROLE_POOL[40] 查找角色模板 ──► 生成 agents[]      │
 └─────────────────────────────────────────────────────────────┘
     │
@@ -30,7 +30,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  POST /spaces/{id}/edges                                    │
 │  edge_service.compute_edges()                               │
-│  ──► llm_client._mock_embedding(name+summary+persona)     │
+│  ──► llm_client._keyword_embed(name+summary+persona)     │
 │  ──► cosine_distance ──► conflict_score                   │
 │  ⚠️ 问题：embedding 是 MD5 伪装的，冲突分数无语义          │
 │  ⚠️ 无法精确控制哪对是 fundamental（推荐辩论）              │
@@ -41,7 +41,7 @@
 │  POST /spaces/{id}/debates                                  │
 │  debate_service.run_debate(edge, agents, request)           │
 │  ──► _build_prompt() 构造 prompt，含 [AGENTS:id1,id2]     │
-│  ──► llm_client._mock_chat_completion()                     │
+│  ──► llm_client._fallback_chat_completion()                     │
 │      ──► 匹配问题 ──► 返回 _DEBATE_PRESETS[问题]            │
 │      ──► 解析 [AGENTS:id1,id2] 标记                        │
 │      ──► 替换 agent_001/agent_002 为实际 source/target      │
@@ -55,7 +55,7 @@
 │  ──► ClusterContent：                                       │
 │      _matchQueryPreset(query) ──► 匹配问题                 │
 │      PRESET_ZHIHU_QUESTIONS[问题] ──► 参考问题（3条）      │
-│      MOCK_ZHIHU_USERS[domain] ──► 知乎用户（按 domain）    │
+│      ZHIHU_USERS[domain] ──► 知乎用户（按 domain）    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,7 +65,7 @@
 
 | Bug | 描述 | 修复方式 |
 |-----|------|----------|
-| 辩论参与者与实际对话不匹配 | `_DEBATE_PRESETS` 硬编码 `agent_001`/`agent_002`，但用户点击的 edge 可能是任意两个 agent | `debate_service.py` prompt 中加入 `[AGENTS:id1,id2]` 标记；`_mock_chat_completion` 解析后替换 transcript 中的 agent ID |
+| 辩论参与者与实际对话不匹配 | `_DEBATE_PRESETS` 硬编码 `agent_001`/`agent_002`，但用户点击的 edge 可能是任意两个 agent | `debate_service.py` prompt 中加入 `[AGENTS:id1,id2]` 标记；`_fallback_chat_completion` 解析后替换 transcript 中的 agent ID |
 
 ---
 
@@ -75,7 +75,7 @@
 |---|------|------|---------------|
 | 1 | `compute_edges` 的冲突分数由 MD5 hash 决定，无法精确控制哪对是 fundamental | 用户可能看到不相关的 agent 对有"推荐辩论"按钮 | `edges` 表增加 `is_preset_recommended` 字段，Mock 模式下按 `query_presets` 配置覆盖冲突类型 |
 | 2 | `_DEBATE_PRESETS` 只有一套辩论内容/问题，适用于任意 agent 对，但立场可能不匹配 | 两个中立派 agent 在激烈辩论 | `debate_templates` 使用 `__SOURCE__` / `__TARGET__` 占位符，内容更通用化；或增加多对组合的辩论模板 |
-| 3 | `MOCK_ZHIHU_USERS` 只有 10 个 domain，30 个 domain fallback 到 startup | 大量角色聚类显示错误的领域用户 | `external_users` 表补全所有 40 个 domain 的知乎用户 |
+| 3 | `ZHIHU_USERS` 只有 10 个 domain，30 个 domain fallback 到 startup | 大量角色聚类显示错误的领域用户 | `external_users` 表补全所有 40 个 domain 的知乎用户 |
 | 4 | `store.py` 纯内存存储，重启后数据丢失 | 无法持久化 | 所有数据写入 PostgreSQL |
 
 ---
@@ -243,7 +243,7 @@ CREATE INDEX idx_trajectory_events_traj ON trajectory_events(trajectory_id);
 CREATE INDEX idx_trajectory_events_time ON trajectory_events(created_at);
 ```
 
-### 5.9 外部平台用户（原 `MOCK_ZHIHU_USERS`）
+### 5.9 外部平台用户（原 `ZHIHU_USERS`）
 
 ```sql
 CREATE TABLE external_users (
@@ -262,7 +262,7 @@ CREATE TABLE external_users (
 CREATE INDEX idx_external_users_domain ON external_users(domain);
 ```
 
-### 5.10 外部平台问题（原 `MOCK_ZHIHU_QUESTIONS`）
+### 5.10 外部平台问题（原 `ZHIHU_QUESTIONS`）
 
 ```sql
 CREATE TABLE external_questions (
@@ -441,7 +441,7 @@ def upgrade():
         # ... 问题2、问题3 的辩论模板同理
     ])
     
-    # 6. 导入外部用户（原 MOCK_ZHIHU_USERS，需补全 40 个 domain）
+    # 6. 导入外部用户（原 ZHIHU_USERS，需补全 40 个 domain）
     op.bulk_insert('external_users', [
         {"name": "张小龙的产品观", "avatar": "🔥", "domain": "startup",
          "title": "连续创业者，前腾讯产品总监", "followers": "23.5万", "url": "https://www.zhihu.com/people/zhangxiaolong"},
@@ -450,11 +450,11 @@ def upgrade():
         # ... 每个 domain 3 人，共 120 条（40 domain × 3）
     ])
     
-    # 7. 导入外部问题（原 MOCK_ZHIHU_QUESTIONS，3 个问题 × 3 条）
+    # 7. 导入外部问题（原 ZHIHU_QUESTIONS，3 个问题 × 3 条）
     op.bulk_insert('external_questions', [
-        {"title": "大厂程序员该不该辞职创业？", "keywords": ["大厂", "创业"], "preset_id": 1, "views": "12.4万", "url": "https://www.zhihu.com/question/mock001"},
-        {"title": "AI创业窗口期还有多久？", "keywords": ["AI", "创业"], "preset_id": 1, "views": "8.7万", "url": "https://www.zhihu.com/question/mock002"},
-        {"title": "副业验证PMF再全职创业靠谱吗？", "keywords": ["副业", "创业"], "preset_id": 1, "views": "5.2万", "url": "https://www.zhihu.com/question/mock003"},
+        {"title": "大厂程序员该不该辞职创业？", "keywords": ["大厂", "创业"], "preset_id": 1, "views": "12.4万", "url": "https://www.zhihu.com/question/demo001"},
+        {"title": "AI创业窗口期还有多久？", "keywords": ["AI", "创业"], "preset_id": 1, "views": "8.7万", "url": "https://www.zhihu.com/question/demo002"},
+        {"title": "副业验证PMF再全职创业靠谱吗？", "keywords": ["副业", "创业"], "preset_id": 1, "views": "5.2万", "url": "https://www.zhihu.com/question/demo003"},
         # ... 问题2、问题3 的参考问题
     ])
 
@@ -531,13 +531,13 @@ class Store:
 | 文件 | 改动内容 |
 |------|----------|
 | `frontend/src/api.ts` | 新增：`getExternalUsers(domain)`、`getExternalQuestions(query)` |
-| `frontend/src/components/AgentPanel.tsx` | 移除：`MOCK_ZHIHU_USERS`、`MOCK_ZHIHU_QUESTIONS`、`PRESET_ZHIHU_QUESTIONS`。改为从 API 获取 |
+| `frontend/src/components/AgentPanel.tsx` | 移除：`ZHIHU_USERS`、`ZHIHU_QUESTIONS`、`PRESET_ZHIHU_QUESTIONS`。改为从 API 获取 |
 | `frontend/src/components/AgentPanel.tsx` | 移除：`handleDebate` catch 块中的硬编码 fallback debate（后端已持久化） |
 
 ### 10.1 AgentPanel.tsx 数据获取示例
 
 ```typescript
-// 移除所有 MOCK_ZHIHU_* 常量
+// 移除所有 ZHIHU_* 常量
 
 function ClusterContent({ agentDomain, agentStance, spaceQuery, onBack }: {
   agentDomain?: string
@@ -574,10 +574,10 @@ function ClusterContent({ agentDomain, agentStance, spaceQuery, onBack }: {
 | 4 | 初始化 Alembic | `alembic init migrations` |
 | 5 | 编写初始迁移 + 种子数据 | `migrations/versions/001_initial.py` |
 | 6 | 重构 `store.py` 为数据库操作 | `app/store.py` |
-| 7 | 重构 `llm_client.py` mock 逻辑 | `app/services/llm_client.py` |
+| 7 | 重构 `llm_client.py` fallback 逻辑 | `app/services/llm_client.py` |
 | 8 | 重构 `edge_service.py` 使用 SQL 计算冲突 | `app/services/edge_service.py` |
 | 9 | 新增外部用户/问题 API | `app/routers/external.py` |
-| 10 | 前端移除硬编码 mock，调用新 API | `frontend/src/components/AgentPanel.tsx` |
+| 10 | 前端移除硬编码静态数据，调用新 API | `frontend/src/components/AgentPanel.tsx` |
 | 11 | 运行全量测试 | `tests/test_api.py` |
 | 12 | 更新 README 部署说明 | `README.md` |
 

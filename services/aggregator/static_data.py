@@ -1,4 +1,4 @@
-"""Aggregator Service: External data mock.
+"""Aggregator Service: External data static source.
 
 All data previously stored in frontend has been migrated here.
 
@@ -23,7 +23,7 @@ DOMAIN_LABELS = {
 }
 
 
-# ── Mock Zhihu Users by domain ──
+# ── Static Zhihu Users by domain ──
 ZHIHU_USERS = {
     "startup": [
         {"name": "张小龙的产品观", "avatar": "🔥", "title": "连续创业者，前腾讯产品总监", "followers": "23.5万", "url": "https://www.zhihu.com/people/zhangxiaolong"},
@@ -78,22 +78,22 @@ ZHIHU_USERS = {
 }
 
 
-# ── Mock Zhihu Questions by query preset ──
+# ── Static Zhihu Questions by query preset ──
 ZHIHU_QUESTIONS = {
     "大厂创业": [
-        {"title": "大厂程序员该不该辞职创业？", "url": "https://www.zhihu.com/question/mock001", "views": "12.4万"},
-        {"title": "AI创业窗口期还有多久？", "url": "https://www.zhihu.com/question/mock002", "views": "8.7万"},
-        {"title": "副业验证PMF再全职创业靠谱吗？", "url": "https://www.zhihu.com/question/mock003", "views": "5.2万"},
+        {"title": "大厂程序员该不该辞职创业？", "url": "https://www.zhihu.com/question/demo001", "views": "12.4万"},
+        {"title": "AI创业窗口期还有多久？", "url": "https://www.zhihu.com/question/demo002", "views": "8.7万"},
+        {"title": "副业验证PMF再全职创业靠谱吗？", "url": "https://www.zhihu.com/question/demo003", "views": "5.2万"},
     ],
     "程序员取代": [
-        {"title": "AI会取代程序员吗？", "url": "https://www.zhihu.com/question/mock101", "views": "28.6万"},
-        {"title": "程序员应该如何应对AI冲击？", "url": "https://www.zhihu.com/question/mock102", "views": "15.3万"},
-        {"title": "AI编程助手会让程序员失业吗？", "url": "https://www.zhihu.com/question/mock103", "views": "9.8万"},
+        {"title": "AI会取代程序员吗？", "url": "https://www.zhihu.com/question/demo101", "views": "28.6万"},
+        {"title": "程序员应该如何应对AI冲击？", "url": "https://www.zhihu.com/question/demo102", "views": "15.3万"},
+        {"title": "AI编程助手会让程序员失业吗？", "url": "https://www.zhihu.com/question/demo103", "views": "9.8万"},
     ],
     "技术管理": [
-        {"title": "30岁程序员转管理还是继续技术？", "url": "https://www.zhihu.com/question/mock201", "views": "21.3万"},
-        {"title": "技术深耕和管理路线哪个更有前途？", "url": "https://www.zhihu.com/question/mock202", "views": "18.5万"},
-        {"title": "35岁程序员如何规划职业发展？", "url": "https://www.zhihu.com/question/mock203", "views": "14.2万"},
+        {"title": "30岁程序员转管理还是继续技术？", "url": "https://www.zhihu.com/question/demo201", "views": "21.3万"},
+        {"title": "技术深耕和管理路线哪个更有前途？", "url": "https://www.zhihu.com/question/demo202", "views": "18.5万"},
+        {"title": "35岁程序员如何规划职业发展？", "url": "https://www.zhihu.com/question/demo203", "views": "14.2万"},
     ],
 }
 

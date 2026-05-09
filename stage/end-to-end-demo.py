@@ -6,7 +6,7 @@
 每一步调用实际 API，使用真实 LLM 生成 Agent、真实 Embedding 计算 Edge。
 
 前置条件：
-    1. MOCK_LLM=false
+    1. =false
     2. COMPUTE_EMBED_BACKEND=local（需 sentence-transformers）
     3. 所有微服务已启动（./scripts/start-services.sh）
 
@@ -315,17 +315,17 @@ def main():
 
     # Step 0: 环境检查
     step(0, "环境检查")
-    mock_llm = os.getenv("MOCK_LLM", "false").lower()
+    mock_llm = os.getenv("", "false").lower()
     embed_backend = os.getenv("COMPUTE_EMBED_BACKEND", "mock")
-    print(f"  MOCK_LLM={mock_llm}")
+    print(f"  ={mock_llm}")
     print(f"  COMPUTE_EMBED_BACKEND={embed_backend}")
     print(f"  LLM_PROVIDER={os.getenv('LLM_PROVIDER', 'deepseek')}")
 
     if mock_llm == "true":
-        print("\n[错误] MOCK_LLM=true，Agent 将使用预设 mock 数据而非真实 LLM。请设置为 false 后重试。")
+        print("\n[错误] =true，Agent 将使用预设 mock 数据而非真实 LLM。请设置为 false 后重试。")
         sys.exit(1)
     if embed_backend == "mock":
-        print("\n[警告] COMPUTE_EMBED_BACKEND=mock，Edge 计算使用非语义关键词向量。建议设置为 local 或 openai。")
+        print("\n[警告] COMPUTE_EMBED_BACKEND=keyword，Edge 计算使用非语义关键词向量。建议设置为 local 或 openai。")
         print("  继续执行...")
 
     try:

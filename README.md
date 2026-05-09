@@ -28,7 +28,7 @@ Gateway ──► Generator (生成 Agents) ──► Core (存储 Space)
     │
     ▼
 Gateway ──► Compute (计算 Edges)
-    │         ├── 调用 embedder 计算语义向量（local/openai/mock）
+    │         ├── 调用 embedder 计算语义向量（local / openai / keyword）
     │         └── 计算 cosine distance + 阈值分类
     │
     ▼
@@ -59,7 +59,7 @@ Core (更新 Trajectory)
 **关键说明**：
 - Generator 被调用 **2 次**（生成 Agents、生成 Debate），不是循环调用
 - Compute 被调用 **2 次**（计算 Edges、计算 Metrics），相互独立
-- Compute 计算 Edges 时**自己计算 embedding**，不再依赖 Generator 的 mock 数据
+- Compute 计算 Edges 时**自己计算 embedding**，不再依赖 Generator 的 preset 数据
 
 ---
 
@@ -102,7 +102,7 @@ Core (更新 Trajectory)
                                 ▼
                         ┌─────────────────┐
                         │  Embedding API   │  ← Compute Service
-                        │  (可插拔后端)     │     local / openai / mock
+                        │  (可插拔后端)     │     local / openai / keyword
                         └─────────────────┘
                                 │
                                 ▼
@@ -162,8 +162,8 @@ cd frontend && npm install
 ```bash
 cp .env.example .env
 # 编辑 .env：
-# - 设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY（或使用 MOCK_LLM=true）
-# - 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（mock/local/openai）
+# - 设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY（）
+# - 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（keyword / local / openai）
 # - 设置 JWT_SECRET_KEY（生产环境必须修改默认值）
 # - 可选：设置 GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET 启用 GitHub 登录
 ```
@@ -197,7 +197,7 @@ brew services stop postgresql@15
 ### 4. 启动服务
 
 ```bash
-# 一键启动所有后端服务（支持 MOCK_LLM 模式）
+# 一键启动所有后端服务
 bash scripts/start-services.sh
 
 # 或手动启动（端口可通过环境变量覆盖）
@@ -307,13 +307,13 @@ curl http://localhost:8000/aggregator/presets/hot-questions
 
 ---
 
-## 前端 mock 数据迁移
+## 前端静态数据迁移
 
 所有前端业务数据已迁移到后端对应服务：
 
 | 原前端数据 | 迁移目标 | 新 API |
 |------------|----------|--------|
-| `MOCK_ZHIHU_USERS` | Aggregator Service | `GET /aggregator/zhihu/users?domain={domain}` |
+| `ZHIHU_USERS` | Aggregator Service | `GET /aggregator/zhihu/users?domain={domain}` |
 | `PRESET_ZHIHU_QUESTIONS` | Aggregator Service | `GET /aggregator/zhihu/questions?query={query}` |
 | `HOT_QUESTIONS` | Aggregator Service | `GET /aggregator/presets/hot-questions` |
 | `DOMAIN_LABEL` | Aggregator Service | `GET /aggregator/domain-labels` |
@@ -354,7 +354,7 @@ cognitive-space-api/
 │   ├── generator/               # LLM 生成服务 (port 8002)
 │   │   ├── llm_client.py        # OpenAI / DeepSeek / Mock 客户端
 │   │   ├── llm_chain.py         # LangChain 结构化链
-│   │   ├── mock_data.py         # Mock 角色池、辩论模板
+│   │   ├── preset_data.py         # Preset 角色池、辩论模板
 │   │   └── routers/             # agents, debates, embeddings
 │   │
 │   ├── compute/                 # 计算服务 (port 8003)
@@ -364,7 +364,7 @@ cognitive-space-api/
 │   │   └── routers/             # edges, metrics
 │   │
 │   └── aggregator/              # 三方聚合服务 (port 8004)
-│       ├── mock_data.py         # 知乎用户、问题、热门问题
+│       ├── preset_data.py         # 知乎用户、问题、热门问题（静态数据）
 │       └── routers/             # zhihu, presets
 │
 ├── frontend/                    # React + TypeScript + Vite
@@ -444,7 +444,7 @@ alembic downgrade -1
 
 ### Aggregator Service
 
-- **当前使用内存 mock 数据**
+- **当前使用内存静态数据**
 - 未来可接入 MongoDB / Elasticsearch 存储外部数据
 
 ---
@@ -459,8 +459,8 @@ alembic downgrade -1
 | `DEEPSEEK_API_KEY` | - | DeepSeek API 密钥 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | DeepSeek 基础地址 |
 | `MODEL_NAME` | `gpt-4o-mini` | LLM 模型名称 |
-| `MOCK_LLM` | `false` | 是否使用 mock LLM（无 API key 时设为 true） |
-| `COMPUTE_EMBED_BACKEND` | `mock` | Compute embedding 后端：`mock` / `local` / `openai` |
+| `` | `false` | 已移除，运行时必须配置 LLM API key |
+| `COMPUTE_EMBED_BACKEND` | `keyword` | Compute embedding 后端：`keyword` / `local` / `openai` |
 | `COMPUTE_LOCAL_MODEL` | `all-MiniLM-L6-v2` | Local 后端模型名称 |
 | `COMPUTE_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI 后端模型名称 |
 | `USE_DB` | `false` | `true`=PostgreSQL, `false`=内存模式 |

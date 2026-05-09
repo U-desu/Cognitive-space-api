@@ -20,7 +20,7 @@ Compute Service 是整个系统中**唯一不含任何 LLM 调用**的服务。�
 │  (port 8003)│
 └──────┬──────┘
        │
-       ├──► embedder.py     → 文本 → 语义向量 (local/openai/mock)
+       ├──► embedder.py     → 文本 → 语义向量 (local / openai / keyword)
        │
        ├──► edge_calculator.py → 向量 → 冲突边 + 空间统计
        │
@@ -35,18 +35,22 @@ Compute Service 是整个系统中**唯一不含任何 LLM 调用**的服务。�
 
 所有配置通过环境变量读取（定义在 `services/shared/config.py`）：
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `COMPUTE_EMBED_BACKEND` | `mock` | Embedding 后端：`local` / `openai` / `mock` |
-| `COMPUTE_LOCAL_MODEL` | `all-MiniLM-L6-v2` | Local 后端使用的模型名称 |
-| `COMPUTE_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI 后端使用的模型名称 |
+
+| 变量                      | 默认值                      | 说明                                       |
+| ----------------------- | ------------------------ | ---------------------------------------- |
+| `COMPUTE_EMBED_BACKEND` | `keyword`                   | Embedding 后端：`local` / `openai` / `keyword` |
+| `COMPUTE_LOCAL_MODEL`   | `all-MiniLM-L6-v2`       | Local 后端使用的模型名称                          |
+| `COMPUTE_OPENAI_MODEL`  | `text-embedding-3-small` | OpenAI 后端使用的模型名称                         |
+
 
 ### 三种后端模式
 
-#### 模式一：mock（默认）
+#### 模式一：keyword（默认）
+
 ```bash
-COMPUTE_EMBED_BACKEND=mock
+COMPUTE_EMBED_BACKEND=keyword
 ```
+
 - **无需任何额外依赖**
 - 使用 **39 个领域的词典 + jieba 中文分词** 生成语义向量
 - 相比旧版的 MD5 哈希伪向量，具有真实的语义区分度：
@@ -55,10 +59,12 @@ COMPUTE_EMBED_BACKEND=mock
 - 适合：快速启动、无网络环境、单元测试
 
 #### 模式二：local（推荐）
+
 ```bash
 pip install sentence-transformers
 COMPUTE_EMBED_BACKEND=local
 ```
+
 - 使用 `sentence-transformers` 加载预训练模型
 - 默认模型 `all-MiniLM-L6-v2`（~80MB，384维）
 - 完全本地运行，不依赖网络/API key
@@ -67,10 +73,12 @@ COMPUTE_EMBED_BACKEND=local
 - 适合：生产环境、Docker 部署、追求真实语义
 
 #### 模式三：openai
+
 ```bash
 COMPUTE_EMBED_BACKEND=openai
 # 需同时配置 OPENAI_API_KEY
 ```
+
 - 直接调用 OpenAI Embedding API
 - 默认模型 `text-embedding-3-small`（1536维）
 - 最高质量，但有 API 费用
@@ -88,7 +96,7 @@ COMPUTE_EMBED_BACKEND=openai
     ├── 对每个 Agent，构造文本："{name}: {summary} {persona}"
     │
     ├── 调用 embedder.embed_batch() 获取语义向量
-    │       ├── mock: jieba 分词 → 领域词典匹配 → 归一化向量
+    │       ├── keyword: jieba 分词 → 领域词典匹配 → 归一化向量
     │       ├── local: SentenceTransformer.encode()
     │       └── openai: OpenAI embeddings.create()
     │
@@ -141,6 +149,7 @@ COMPUTE_EMBED_BACKEND=openai
 **输入文本**：`"{agent.name}: {agent.summary} {agent.persona}"`
 
 **Mock 模式计算**：
+
 ```python
 # 1. jieba 分词
 tokens = jieba.cut(text)
@@ -156,6 +165,7 @@ vec = vec / ||vec||
 ```
 
 **设计依据**：
+
 - 每个维度代表该 Agent 与某个领域的关联强度
 - 通用关键词提供基线重叠，避免完全正交
 - 开方运算放大强信号、抑制弱信号
@@ -166,18 +176,21 @@ vec = vec / ||vec||
 ### 4.2 Cosine Distance（余弦距离）
 
 **公式**：
+
 ```
 cosine_similarity(A, B) = (A · B) / (||A|| × ||B||)
 cosine_distance(A, B) = 1 - cosine_similarity(A, B)
 ```
 
 **数学依据**：
+
 - 余弦相似度衡量两个向量在方向上的接近程度
 - 值域 [-1, 1]：1 表示同向（语义完全一致），-1 表示反向（语义完全对立）
 - 对归一化单位向量，值域压缩为 [0, 1]
 - 转换为 distance 后：0 表示完全一致，1 表示完全对立
 
 **代码实现**：
+
 ```python
 dot = sum(x * y for x, y in zip(a, b))
 norm_a = math.sqrt(sum(x * x for x in a))
@@ -192,6 +205,7 @@ distance = 1.0 - similarity
 ### 4.3 Conflict Type 分类
 
 **阈值规则**：
+
 ```
 score > 0.70  →  fundamental   (根本性冲突)
 score > 0.30  →  partial       (部分冲突)
@@ -199,6 +213,7 @@ score ≤ 0.30  →  minor         (轻微分歧)
 ```
 
 **业务依据**：
+
 - `fundamental`（>0.7）：语义差异极大，立场对立明显，应优先推荐辩论
 - `partial`（0.3~0.7）：有显著分歧但非根本对立
 - `minor`（≤0.3）：观点相近，分歧不显著
@@ -210,6 +225,7 @@ score ≤ 0.30  →  minor         (轻微分歧)
 ### 4.4 Coverage Area（覆盖面积）
 
 **公式**：
+
 ```python
 def _compute_coverage_area(positions):
     if len(positions) < 3:
@@ -222,6 +238,7 @@ def _compute_coverage_area(positions):
 **方法**：计算这些点的**凸包面积**（Convex Hull Area）
 
 **依据**：
+
 - 类比地理探索：访问点越分散，认知覆盖范围越大
 - 凸包是包含所有点的最小凸多边形
 - 坐标系为 `[0,1] × [0,1]`，理论最大面积为 1.0
@@ -232,15 +249,18 @@ def _compute_coverage_area(positions):
 ### 4.5 Depth Score（深度分数）
 
 **公式**：
+
 ```
 depth_score = min(1.0, debate_count × 0.3 + total_dwell_time / 300)
 ```
 
 **变量**：
+
 - `debate_count`：用户触发的辩论次数
 - `total_dwell_time`：用户在各页面的总停留时间（秒）
 
 **依据**：
+
 - `debate_count × 0.3`：每次辩论代表一次深度认知交互。触发 4 次即达满分
 - `total_dwell_time / 300`：每 5 分钟停留贡献 1.0 分
 - `min(1.0, ...)`：归一化到 [0, 1]
@@ -251,11 +271,13 @@ depth_score = min(1.0, debate_count × 0.3 + total_dwell_time / 300)
 ### 4.6 Breadth Score（广度分数）
 
 **公式**：
+
 ```
 breadth_score = visited_unique_agents / total_agents
 ```
 
 **依据**：
+
 - 最简单的覆盖度指标：看了多少个不同的 Agent
 - 与 Coverage Area 的区别：Breadth 是计数，Coverage 是空间面积
 - 两者可能不一致（如看了 3 个聚在一起的 Agent，Breadth 高但 Coverage 低）
@@ -265,11 +287,13 @@ breadth_score = visited_unique_agents / total_agents
 ### 4.7 Conflict Engagement（冲突参与度）
 
 **公式**：
+
 ```
 conflict_engagement = min(1.0, debate_actions / max(1, total_actions / 2))
 ```
 
 **依据**：
+
 - 衡量用户对"冲突/辩论"的偏好程度
 - 分母 `total_actions / 2`：假设"正常"用户行为中约一半与冲突相关
 - debate_actions 超过总行为一半时 Engagement 达 1.0
@@ -280,6 +304,7 @@ conflict_engagement = min(1.0, debate_actions / max(1, total_actions / 2))
 ### 4.8 Journey Stage（认知阶段）
 
 **状态机**：
+
 ```
 exploration
     └── view >= 2 ──► perspective_gathering
@@ -289,14 +314,17 @@ exploration
 
 **各阶段定义**：
 
-| 阶段 | 触发条件 | 业务含义 |
-|------|----------|----------|
-| `exploration` | 初始状态，或 view < 2 | 用户刚开始探索 |
-| `perspective_gathering` | view >= 2 | 已收集多个视角 |
-| `conflict_discovery` | 触发过 expand | 发现了观点差异 |
-| `conflict_resolution` | 触发过 debate | 已参与辩论 |
+
+| 阶段                      | 触发条件            | 业务含义    |
+| ----------------------- | --------------- | ------- |
+| `exploration`           | 初始状态，或 view < 2 | 用户刚开始探索 |
+| `perspective_gathering` | view >= 2       | 已收集多个视角 |
+| `conflict_discovery`    | 触发过 expand      | 发现了观点差异 |
+| `conflict_resolution`   | 触发过 debate      | 已参与辩论   |
+
 
 **依据**：
+
 - 基于 Kolb 体验式学习理论：具体经验 → 反思观察 → 抽象概念化 → 主动实验
 - 状态**单调递增**（不回退），反映认知的不可逆深入
 
@@ -305,20 +333,25 @@ exploration
 ### 4.9 Space Stats（空间统计）
 
 **Conflict Density（冲突密度）**：
+
 ```
 conflict_density = avg(conflict_score for all edges)
 ```
+
 - 整个空间的平均冲突分数
 - 反映问题的"争议程度"
 
 **Diversity Index（多样性指数）**：
+
 ```
 diversity_index = fundamental_count / total_edges
 ```
+
 - 根本性冲突占比
 - 反映观点的"极化程度"
 
 **Consensus Clusters（共识聚类数）**：
+
 - 当前简化实现：`1 if edges else 0`
 - **未来改进**：Union-Find 连通分量算法，将 conflict_score < 0.3 的 Agent 视为同一聚类
 
@@ -334,13 +367,14 @@ Compute Service (8003)
     │
     ├──► Generator Service (8002)   ← 仅旧版依赖，新版已移除
     │       [已移除] 不再通过 HTTP 获取 embeddings
-    │       Compute 自己计算 embedding（local/openai/mock）
+    │       Compute 自己计算 embedding（local / openai / keyword）
     │
     └──► 无其他下游依赖
 ```
 
 **重要变更**：Compute 不再通过 HTTP 调用 Generator 获取 embeddings。嵌入计算已内聚到 Compute 内部，这是为了保证：
-1. **计算真实性**：Compute 自己控制 embedding 质量，不受 Generator mock 模式影响
+
+1. **计算真实性**：Compute 自己控制 embedding 质量，不受 Generator 运行模式影响
 2. **服务解耦**：Compute 与 Generator 之间无运行时依赖
 3. **可测试性**：Compute 的输入输出完全确定，便于单元测试
 
@@ -348,13 +382,15 @@ Compute Service (8003)
 
 ## 6. 性能特征
 
-| 指标 | Mock 模式 | Local 模式 | OpenAI 模式 |
-|------|-----------|------------|-------------|
-| 首次请求延迟 | ~10ms | ~2-3s（模型加载） | ~500ms（API RTT） |
-| 后续请求延迟 | ~5ms | ~10ms | ~200ms |
-| 内存占用 | ~0 | ~100MB（模型） | ~0 |
-| 网络依赖 | 无 | 首次需下载模型 | 每次需调用 API |
-| 费用 | 无 | 无 | 按 token 计费 |
+
+| 指标     | Mock 模式 | Local 模式    | OpenAI 模式       |
+| ------ | ------- | ----------- | --------------- |
+| 首次请求延迟 | ~10ms   | ~2-3s（模型加载） | ~500ms（API RTT） |
+| 后续请求延迟 | ~5ms    | ~10ms       | ~200ms          |
+| 内存占用   | ~0      | ~100MB（模型）  | ~0              |
+| 网络依赖   | 无       | 首次需下载模型     | 每次需调用 API       |
+| 费用     | 无       | 无           | 按 token 计费      |
+
 
 ---
 
@@ -379,9 +415,12 @@ curl -X POST http://localhost:8003/compute/metrics/compute \
 
 ## 8. 未来扩展
 
-| 方向 | 描述 |
-|------|------|
-| Consensus Clusters | 实现 Union-Find 连通分量算法，精确计算观点聚类数 |
+
+| 方向                  | 描述                             |
+| ------------------- | ------------------------------ |
+| Consensus Clusters  | 实现 Union-Find 连通分量算法，精确计算观点聚类数 |
 | Edge Weighted Graph | 将冲突图用于路径推荐（最短路径 = 最少冲突的视角切换路线） |
-| Real-time Metrics | 前端通过 WebSocket 实时推送 Metrics 更新 |
-| Custom Formulas | 允许用户配置自己的指标公式（通过环境变量或数据库配置） |
+| Real-time Metrics   | 前端通过 WebSocket 实时推送 Metrics 更新 |
+| Custom Formulas     | 允许用户配置自己的指标公式（通过环境变量或数据库配置）    |
+
+

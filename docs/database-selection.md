@@ -107,7 +107,7 @@ CREATE TABLE agents (
     confidence FLOAT CHECK (confidence BETWEEN 0 AND 1),
     authority FLOAT CHECK (authority BETWEEN 0 AND 1),
     novelty FLOAT CHECK (novelty BETWEEN 0 AND 1),
-    -- 向量维度根据 backend 动态调整：mock=39, local=384, openai=1536
+    -- 向量维度根据 backend 动态调整：keyword=39, local=384, openai=1536
     embedding VECTOR(1536),
     created_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (space_id, agent_id)
@@ -178,7 +178,7 @@ CREATE INDEX idx_events_time ON trajectory_events(created_at);
 
 | Backend | 维度 |
 |---------|------|
-| mock | 39 |
+| keyword | 39 |
 | local (all-MiniLM-L6-v2) | 384 |
 | openai (text-embedding-3-small) | 1536 |
 
@@ -186,7 +186,7 @@ CREATE INDEX idx_events_time ON trajectory_events(created_at);
 
 ```python
 # 存储时
-vec = embedder.embed(text)  # mock: 39维, local: 384维
+vec = embedder.embed(text)  # keyword: 39维, local: 384维
 padded = vec + [0.0] * (1536 - len(vec))  # 补零到 1536 维
 
 # 查询时（pgvector 的 <=> 操作符）
