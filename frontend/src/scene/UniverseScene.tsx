@@ -74,12 +74,12 @@ export default function UniverseScene({
     : '问题'
 
   return (
-    <div className="w-full h-full relative" style={{ background: '#080816' }}>
+    <div className="w-full h-full relative" style={{ background: '#d8ecef' }}>
       {/* Back button (focus mode only) */}
       {isFocus && (
         <button
           onClick={onBackToGlobal}
-          className="absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all"
+          className="absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-black/10 backdrop-blur border border-black/20 text-gray-800 hover:bg-black/20 hover:scale-105 transition-all"
           title="返回全局视图"
         >
           ←
@@ -87,7 +87,7 @@ export default function UniverseScene({
       )}
 
       {/* Hints */}
-      <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/10 text-[10px] text-gray-400 font-bold pointer-events-none">
+      <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full bg-black/10 backdrop-blur border border-black/10 text-[10px] text-gray-600 font-bold pointer-events-none">
         拖拽旋转 · 滚轮缩放 · 双击空白返回
       </div>
 
@@ -95,7 +95,7 @@ export default function UniverseScene({
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl }) => {
-          gl.setClearColor('#080816')
+          gl.setClearColor('#d8ecef')
         }}
       >
         <ambientLight intensity={0.4} />
@@ -123,11 +123,11 @@ export default function UniverseScene({
           <CenterLabel position={[0, -4.5, 0]}>
             <Text
               fontSize={2.5}
-              color="white"
+              color="#1a202c"
               anchorX="center"
               anchorY="top"
-              outlineWidth={0.1}
-              outlineColor="#000000"
+              outlineWidth={0.05}
+              outlineColor="#ffffff"
             >
               🌟 {centerLabel}
             </Text>

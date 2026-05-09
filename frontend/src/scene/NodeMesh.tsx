@@ -162,11 +162,11 @@ export default function NodeMesh({
       <LabelGroup position={[0, -2.0, 0]}>
         <Text
           fontSize={1.0}
-          color="white"
+          color="#1a202c"
           anchorX="center"
           anchorY="top"
-          outlineWidth={0.05}
-          outlineColor="#000000"
+          outlineWidth={0.03}
+          outlineColor="#ffffff"
         >
           {STANCE_EMOJI[agent.stance]} {agent.name}
         </Text>
