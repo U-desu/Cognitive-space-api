@@ -67,7 +67,7 @@ Core (更新 Trajectory)
 
 ```
 ┌─────────────┐      ┌─────────────────────────────────────────────────────────┐
-│  Frontend   │─────►│  Gateway (8000)  - API 网关 + 业务编排                   │
+│  Frontend   │─────►│  Gateway (8000)  - API 网关 + 业务编排 + 认证            │
 │  (port 5173)│      └────────┬────────┬────────┬────────┬────────────────────┘
 └─────────────┘               │        │        │        │
                               ▼        ▼        ▼        ▼
@@ -79,13 +79,13 @@ Core (更新 Trajectory)
 
 ### 服务职责
 
-| 服务 | 端口 | 职责 | 数据类型 | 未来数据库 |
-|------|------|------|----------|-----------|
-| **Gateway** | 8000 | 统一入口、路由转发、**业务编排**、**认证** | 无状态 | 无 |
-| **Core** | 8001 | Space/Agent/Edge/Debate/Trajectory 存储 | 结构化业务数据 | PostgreSQL |
-| **Generator** | 8002 | Agent生成、Debate生成、Embedding | LLM 生成内容 | Redis |
+| 服务 | 端口 | 职责 | 数据类型 | 数据库 |
+|------|------|------|----------|--------|
+| **Gateway** | 8000 | 统一入口、路由转发、**业务编排**、**认证** | 无状态 | 无（Auth 数据在 PostgreSQL `auth` schema） |
+| **Core** | 8001 | Space/Agent/Edge/Debate/Trajectory 存储 | 结构化业务数据 | PostgreSQL `core` schema |
+| **Generator** | 8002 | Agent生成、Debate生成、Embedding | LLM 生成内容 | 内存（未来 Redis） |
 | **Compute** | 8003 | Edge冲突计算、Metrics计算 | 纯算法计算，无持久化 | 无 |
-| **Aggregator** | 8004 | 知乎用户、知乎问题、热门问题 | 外部聚合数据 | MongoDB/ES |
+| **Aggregator** | 8004 | 知乎用户、知乎问题、热门问题 | 外部聚合数据 | 内存（未来 MongoDB/ES） |
 
 ### 数据分层
 
@@ -101,8 +101,8 @@ Core (更新 Trajectory)
                                 │
                                 ▼
                         ┌─────────────────┐
-                        │  Embedding API   │  ← Generator Service
-                        │  (可缓存)         │     agent_hash → vec
+                        │  Embedding API   │  ← Compute Service
+                        │  (可插拔后端)     │     local / openai / mock
                         └─────────────────┘
                                 │
                                 ▼
@@ -162,30 +162,33 @@ cd frontend && npm install
 ```bash
 cp .env.example .env
 # 编辑 .env：
-# - 设置 OPENAI_API_KEY 或 MOCK_LLM=true
+# - 设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY（或使用 MOCK_LLM=true）
 # - 设置 COMPUTE_EMBED_BACKEND 选择 embedding 后端（mock/local/openai）
 # - 设置 JWT_SECRET_KEY（生产环境必须修改默认值）
 # - 可选：设置 GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET 启用 GitHub 登录
 ```
 
-### 3. 数据库（可选，默认内存模式）
+### 3. 数据库（推荐启用持久化）
 
 系统支持两种存储模式：
-- **内存模式**（默认 `USE_DB=false`）：零依赖，重启数据丢失，适合演示
-- **PostgreSQL 模式**（`USE_DB=true`）：数据持久化，适合开发/生产
+- **内存模式**（`USE_DB=false`）：零依赖，重启数据丢失，适合快速演示
+- **PostgreSQL 模式**（`USE_DB=true`）：数据持久化，含 Alembic 迁移，适合开发/生产
 
 ```bash
-# macOS 安装 PostgreSQL + pgvector
+# macOS 安装 PostgreSQL
 brew install postgresql@15
 brew services start postgresql@15
 
 # 创建数据库
 createdb cognitive_space
 
-# 初始化表结构
+# 初始化 schema + 表（Alembic 迁移）
 export USE_DB=true
 export DATABASE_URL="postgresql://localhost:5432/cognitive_space"
-python3 scripts/init_db.py
+alembic upgrade head
+
+# 或手动初始化（旧方式，已被 Alembic 替代）
+# python3 scripts/init_db.py
 
 # 停止 PostgreSQL
 brew services stop postgresql@15
@@ -194,10 +197,10 @@ brew services stop postgresql@15
 ### 4. 启动服务
 
 ```bash
-# 一键启动所有后端服务
+# 一键启动所有后端服务（支持 MOCK_LLM 模式）
 bash scripts/start-services.sh
 
-# 或手动启动
+# 或手动启动（端口可通过环境变量覆盖）
 python3 -m uvicorn services.core.main:app --port 8001 &
 python3 -m uvicorn services.generator.main:app --port 8002 &
 python3 -m uvicorn services.compute.main:app --port 8003 &
@@ -216,8 +219,7 @@ cd frontend && npm run dev
 # 停止所有后端服务
 pkill -f 'uvicorn services'
 
-# 停止前端（如果在终端运行，按 Ctrl+C）
-# 或查找并终止 node 进程
+# 停止前端
 pkill -f 'vite'
 
 # 停止 PostgreSQL（如已启用）
@@ -227,6 +229,10 @@ brew services stop postgresql@15
 ### 6. 验证服务
 
 ```bash
+# 一键验证（健康检查 + API 流程 + DB 一致性）
+python3 scripts/validate.py
+
+# 或手动检查各服务健康
 curl http://localhost:8000/health
 curl http://localhost:8001/health
 curl http://localhost:8002/health
@@ -234,7 +240,17 @@ curl http://localhost:8003/health
 curl http://localhost:8004/health
 ```
 
-### 7. API 调用示例
+### 7. 运行测试
+
+```bash
+# 集成测试（需要所有服务在线）
+python3 -m pytest tests/test_api.py -v
+
+# 或带环境变量运行
+USE_DB=true LLM_PROVIDER=deepseek python3 -m pytest tests/test_api.py -v
+```
+
+### 8. API 调用示例
 
 ```bash
 # 创建认知空间（Gateway 编排：Generator 生成 Agent → Core 存储）
@@ -250,13 +266,18 @@ curl -X POST http://localhost:8000/spaces/{space_id}/debates \
   -H "Content-Type: application/json" \
   -d '{"edge_id": "edge_agent_001_agent_002", "rounds": 2}'
 
+# 展开 Agent（生成子视角）
+curl -X POST http://localhost:8000/spaces/{space_id}/agents/{agent_id}/expand \
+  -H "Content-Type: application/json" \
+  -d '{"query_hint": "深入探讨", "num_agents": 2}'
+
 # 获取认知轨迹（Gateway 编排：Core 读轨迹 → Compute 计算指标）
 curl http://localhost:8000/spaces/{space_id}/trajectory
 
 # 认证示例
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"123456"}' \
+  -d '{"username":"test","password":"123456","email":"test@example.com"}' \
   -c cookies.txt
 
 curl http://localhost:8000/auth/me -b cookies.txt
@@ -268,6 +289,21 @@ curl "http://localhost:8000/aggregator/zhihu/users?domain=startup"
 curl "http://localhost:8000/aggregator/zhihu/questions?query=大厂创业"
 curl http://localhost:8000/aggregator/presets/hot-questions
 ```
+
+---
+
+## 认证系统
+
+支持三种认证方式，全部兼容访客模式：
+
+| 方式 | 端点 | 说明 |
+|------|------|------|
+| **密码注册** | `POST /auth/register` | username + password + email |
+| **密码登录** | `POST /auth/login` | 返回 JWT httpOnly cookie (`access_token`) |
+| **GitHub OAuth** | `GET /auth/github/authorize` → callback | 一键登录，自动创建/绑定用户 |
+| **访客模式** | 无需登录 | 可直接创建 Space、计算 Edge、触发 Debate |
+
+所有受保护端点使用 `get_current_user`（可选认证），未登录时以访客身份操作。
 
 ---
 
@@ -293,31 +329,38 @@ curl http://localhost:8000/aggregator/presets/hot-questions
 ```
 cognitive-space-api/
 ├── services/                    # 微服务目录
-│   ├── shared/                  # 共享模型和配置
+│   ├── shared/                  # 共享模型和配置 SSoT
 │   │   ├── models.py            # 所有 Pydantic 模型
-│   │   └── config.py            # 服务发现和 LLM 配置
+│   │   ├── config.py            # 服务发现 + LLM + Auth + Compute 配置
+│   │   └── db_config.py         # PostgreSQL 引擎 + Schema 定义
 │   │
 │   ├── gateway/                 # API 网关 (port 8000)
 │   │   ├── auth/                # 认证模块（JWT / OAuth / 密码）
 │   │   │   ├── jwt.py
 │   │   │   ├── password_auth.py
 │   │   │   ├── github_oauth.py
-│   │   │   └── store.py
+│   │   │   ├── models_db.py     # Auth schema ORM
+│   │   │   └── store.py         # 内存/DB 分发
 │   │   ├── dependencies.py      # get_current_user / require_user
 │   │   └── main.py              # 路由转发 + 业务编排 + 认证路由
 │   │
 │   ├── core/                    # 业务数据服务 (port 8001)
-│   │   ├── store.py             # 内存存储（未来替换为 DB）
+│   │   ├── models_db.py         # Core schema ORM
+│   │   ├── db_store.py          # PostgreSQL CRUD
+│   │   ├── memory_store.py      # 内存存储
+│   │   ├── store.py             # 内存/DB 分发
 │   │   └── routers/             # spaces, edges, debates, trajectories, export
 │   │
 │   ├── generator/               # LLM 生成服务 (port 8002)
-│   │   ├── llm_client.py        # OpenAI / Mock 客户端
+│   │   ├── llm_client.py        # OpenAI / DeepSeek / Mock 客户端
+│   │   ├── llm_chain.py         # LangChain 结构化链
 │   │   ├── mock_data.py         # Mock 角色池、辩论模板
 │   │   └── routers/             # agents, debates, embeddings
 │   │
 │   ├── compute/                 # 计算服务 (port 8003)
 │   │   ├── edge_calculator.py   # 冲突边计算
 │   │   ├── metrics_calculator.py # 认知指标计算
+│   │   ├── embedder.py          # 可插拔嵌入后端
 │   │   └── routers/             # edges, metrics
 │   │
 │   └── aggregator/              # 三方聚合服务 (port 8004)
@@ -329,23 +372,35 @@ cognitive-space-api/
 │   │   ├── api.ts               # API 客户端（调用 Gateway，自动携带 Cookie）
 │   │   ├── api-types.ts         # TypeScript 类型定义
 │   │   ├── auth/                # 认证相关组件
-│   │   │   ├── AuthContext.tsx  # 全局认证状态
-│   │   │   ├── AuthModal.tsx    # 登录/注册弹窗
-│   │   │   └── useAuth.ts       # 认证 Hook
 │   │   └── components/          # React 组件
 │   └── vite.config.ts           # 代理配置指向 Gateway
 │
+├── tests/
+│   └── test_api.py              # 10 个集成测试
+│
 ├── scripts/
-│   └── start-services.sh        # 一键启动脚本
+│   ├── start-services.sh        # 一键启动脚本
+│   ├── validate.py              # 一键验证脚本
+│   ├── clean_data.py            # 数据清理脚本
+│   ├── fix_schema.py            # DB 约束修复脚本
+│   ├── init_db.py               # 数据库初始化（旧方式）
+│   └── export-schema.py         # OpenAPI schema 导出
+│
+├── alembic/                     # Alembic 数据库迁移
+│   ├── env.py                   # 多 schema PostgreSQL 配置
+│   └── versions/                # 迁移版本
 │
 ├── docs/
 │   ├── api-design.md            # API 完整设计
-│   ├── compute-module.md        # Compute 服务模块说明（配置、公式、依据）
-│   ├── pitch-script.md          # 5分钟答辩逐句稿
-│   └── database-migration-plan.md # 数据库迁移方案（12张表）
+│   ├── auth.md                  # 认证系统设计
+│   ├── compute-module.md        # Compute 服务模块说明
+│   ├── database.md              # 数据库设计文档
+│   ├── database-selection.md    # 数据库选型分析
+│   ├── database-migration-plan.md # 迁移方案
+│   └── pitch-script.md          # 5分钟答辩逐句稿
 │
 ├── requirements.txt
-├── .env
+├── .env.example
 └── README.md
 ```
 
@@ -353,38 +408,44 @@ cognitive-space-api/
 
 ## 数据库迁移指南
 
-当前所有服务使用内存存储。各服务已按以下策略设计，可独立迁移：
+系统使用 **Alembic** 管理数据库迁移，支持多 Schema PostgreSQL。
 
-### Core Service → PostgreSQL
+```bash
+# 初始化数据库（创建 schema + 表）
+alembic upgrade head
+
+# 创建新迁移（修改 models_db.py 后）
+alembic revision --autogenerate -m "description"
+
+# 回滚一次迁移
+alembic downgrade -1
+```
+
+### Core Service → PostgreSQL `core` schema
 
 | 表 | 结构 | 索引 |
 |----|------|------|
-| `spaces` | space_id(PK), query, dimensions(JSONB), metadata(JSONB) | PK |
-| `agents` | agent_id(PK), space_id(FK), name, persona, stance, domain, summary, position(JSONB) | space_id |
-| `edges` | edge_id(PK), space_id(FK), source, target, conflict_score, conflict_type, debate_recommended | space_id, conflict_type |
-| `debates` | debate_id(PK), edge_id(FK), participants(JSONB), transcript(JSONB), synthesis(JSONB) | edge_id |
-| `trajectories` | trajectory_id(PK), space_id(FK), path(JSONB), metrics(JSONB), journey_stage | space_id |
+| `spaces` | space_id(PK), query, dimensions(JSONB), metadata(JSONB), user_id | PK |
+| `agents` | agent_id(PK), space_id(FK), name, persona, stance, domain, summary, parent_id | space_id |
+| `edges` | edge_id(PK), space_id(FK), source_agent_id, target_agent_id, conflict_score | space_id |
+| `debates` | debate_id(PK), space_id(FK), edge_id(FK), participants(JSONB), transcript(JSONB) | edge_id |
+| `trajectories` | trajectory_id(PK), space_id(FK,UNIQUE), path(JSONB), metrics(JSONB), journey_stage | space_id |
+| `trajectory_events` | event_id(PK), trajectory_id(FK), node, action, dwell_time | trajectory_id |
 
-### Generator Service → Redis
+### Generator Service
 
-| Key 模式 | 值 | TTL |
-|----------|-----|-----|
-| `embedding:{text_hash}` | 1536-dim float[] | 永久 |
-| `debate:{edge_hash}` | debate JSON | 7 天 |
-| `agent:{query_hash}` | agents JSON | 1 小时 |
+- **无持久化数据库**，纯内存 + LLM 实时生成
+- 未来可接入 Redis 缓存 debate/agent 结果
 
 ### Compute Service
 
 - **无状态**，无需数据库
-- 水平扩展：直接增加实例
+- 水平扩展：直接增加实例，无需共享存储
 
-### Aggregator Service → MongoDB / Elasticsearch
+### Aggregator Service
 
-| 集合/索引 | 用途 |
-|-----------|------|
-| `external_users` | 知乎用户文档，按 domain 索引 |
-| `external_questions` | 知乎问题文档，支持语义搜索 |
-| `presets` | 运营配置（热门问题等） |
+- **当前使用内存 mock 数据**
+- 未来可接入 MongoDB / Elasticsearch 存储外部数据
 
 ---
 
@@ -392,14 +453,18 @@ cognitive-space-api/
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
+| `LLM_PROVIDER` | `openai` | LLM 提供商：`openai` / `deepseek` |
 | `OPENAI_API_KEY` | - | OpenAI API 密钥 |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API 基础地址 |
+| `DEEPSEEK_API_KEY` | - | DeepSeek API 密钥 |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | DeepSeek 基础地址 |
 | `MODEL_NAME` | `gpt-4o-mini` | LLM 模型名称 |
-| `EMBED_MODEL` | `text-embedding-3-small` | Embedding 模型名称 |
 | `MOCK_LLM` | `false` | 是否使用 mock LLM（无 API key 时设为 true） |
 | `COMPUTE_EMBED_BACKEND` | `mock` | Compute embedding 后端：`mock` / `local` / `openai` |
 | `COMPUTE_LOCAL_MODEL` | `all-MiniLM-L6-v2` | Local 后端模型名称 |
 | `COMPUTE_OPENAI_MODEL` | `text-embedding-3-small` | OpenAI 后端模型名称 |
+| `USE_DB` | `false` | `true`=PostgreSQL, `false`=内存模式 |
+| `DATABASE_URL` | `postgresql://localhost:5432/cognitive_space` | PostgreSQL 连接地址 |
 | `JWT_SECRET_KEY` | `dev-secret-change-in-production` | JWT 签名密钥（**生产必须修改**） |
 | `JWT_ALGORITHM` | `HS256` | JWT 算法 |
 | `JWT_EXPIRE_MINUTES` | `10080` | Token 过期时间（默认 7 天） |
@@ -417,7 +482,7 @@ cognitive-space-api/
 - [`docs/database.md`](docs/database.md) — 数据库设计文档（Schema/表结构/配置方式）
 - [`docs/database-selection.md`](docs/database-selection.md) — 数据库选型分析（PostgreSQL vs MySQL vs MongoDB）
 - [`docs/pitch-script.md`](docs/pitch-script.md) — 5分钟答辩逐句稿
-- [`docs/database-migration-plan.md`](docs/database-migration-plan.md) — PostgreSQL + pgvector 迁移方案（12张表）
+- [`docs/database-migration-plan.md`](docs/database-migration-plan.md) — PostgreSQL + pgvector 迁移方案
 
 ---
 

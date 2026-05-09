@@ -3,7 +3,7 @@
 > 本文档描述 Cognitive Space API 当前实际落地的数据库配置。
 >
 > 对应架构版本：微服务 v0.2.0  
-> 文档版本：v1.0
+> 文档版本：v2.0
 
 ---
 
@@ -25,17 +25,16 @@
 │  └────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────┐  │
 │  │ Schema: aggregator (预留)               │  │
-│  │  external_users, external_questions     │  │
-│  │  presets                                │  │
+│  │  （表结构已定义，当前无数据）             │  │
 │  └────────────────────────────────────────┘  │
 └──────────────────────────────────────────────┘
 ```
 
 **设计原则**：
 - **逻辑隔离，物理共享**：各服务通过 PostgreSQL Schema 隔离，共享同一实例
-- **零依赖起步**：默认 `USE_DB=false`，纯内存运行，无需安装 PostgreSQL
-- **一键切换**：改环境变量即可切到 PostgreSQL 持久化
-- **未来可拆分**：Phase 2 只需改连接字符串即可将各 Schema 迁到独立实例
+- **微服务边界清晰**：Core 服务只管理 `core` schema，Gateway 只管理 `auth` schema
+- **ORM 与 DB 解耦**：ORM 模型不定义跨 schema 的 ForeignKey（避免服务间启动依赖），数据库层面通过独立 SQL 脚本维护 FK 约束
+- **Alembic 管理迁移**：所有 schema 变更通过 Alembic 版本控制
 
 ---
 
@@ -58,10 +57,15 @@
 bash scripts/start-services.sh
 
 # PostgreSQL 模式
-createdb cognitive_space
 export USE_DB=true
 export DATABASE_URL="postgresql://localhost:5432/cognitive_space"
-python3 scripts/init_db.py
+
+# Alembic 迁移初始化（推荐）
+alembic upgrade head
+
+# 或手动初始化（旧方式，已被 Alembic 替代）
+# python3 scripts/init_db.py
+
 bash scripts/start-services.sh
 ```
 
@@ -74,7 +78,7 @@ bash scripts/start-services.sh
 | 表名 | 用途 | 数据量预估 |
 |------|------|-----------|
 | `spaces` | 认知空间定义 | 每个用户 1-10 条 |
-| `agents` | 空间中的专家角色 | 每个 space 3-6 条 |
+| `agents` | 空间中的专家角色 | 每个 space 3-6 条（展开后更多） |
 | `edges` | 角色间的冲突边 | 每个 space C(n,2) 条 |
 | `debates` | 辩论记录 | 每条 edge 0-1 条 |
 | `trajectories` | 认知轨迹主表 | 每个 space 1 条 |
@@ -88,7 +92,7 @@ CREATE TABLE core.spaces (
     query TEXT NOT NULL,
     dimensions JSONB NOT NULL DEFAULT '{}',
     metadata JSONB NOT NULL DEFAULT '{}',
-    user_id VARCHAR(30),                    -- 关联创建者（nullable=匿名）
+    user_id VARCHAR(30),                    -- 创建者（null=访客模式）
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -97,15 +101,19 @@ CREATE TABLE core.spaces (
 |------|------|------|
 | `space_id` | VARCHAR(20) | 业务主键，如 `space_a1b2c3d4` |
 | `query` | TEXT | 用户输入的问题 |
-| `dimensions` | JSONB | 坐标维度定义，如 `{"x": {"name":"authority",...}}` |
-| `metadata` | JSONB | 空间元数据（complexity, estimated_nodes 等） |
-| `user_id` | VARCHAR(30) | 创建者 ID，null 表示匿名创建 |
+| `dimensions` | JSONB | 坐标维度定义 |
+| `metadata` | JSONB | 空间元数据 |
+| `user_id` | VARCHAR(30) | 创建者 ID，null 表示访客创建 |
+
+**约束说明**：
+- ORM 层面：`SpaceDB.user_id` 为纯 `String` 列，**无 ForeignKey**（auth 是 Gateway 的职责）
+- DB 层面：`scripts/fix_schema.py` 添加了 `FOREIGN KEY (user_id) REFERENCES auth.users(user_id) ON DELETE SET NULL`
 
 ### agents
 
 ```sql
 CREATE TABLE core.agents (
-    agent_id VARCHAR(20) NOT NULL,
+    agent_id VARCHAR(50) NOT NULL,          -- 展开后 ID 可能较长
     space_id VARCHAR(20) NOT NULL REFERENCES core.spaces(space_id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     persona TEXT,
@@ -115,7 +123,8 @@ CREATE TABLE core.agents (
     confidence FLOAT,
     authority FLOAT,
     novelty FLOAT,
-    embedding FLOAT[],                      -- 语义向量（mock=39维, local=384, openai=1536）
+    parent_id VARCHAR(50),                  -- 父 Agent ID（展开生成时使用）
+    embedding FLOAT[],                      -- 语义向量
     created_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (space_id, agent_id)
 );
@@ -123,7 +132,7 @@ CREATE TABLE core.agents (
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `agent_id` | VARCHAR(20) | 业务主键，如 `agent_001` |
+| `agent_id` | VARCHAR(50) | 业务主键，如 `agent_001` 或 `agent_001_child_abcd` |
 | `space_id` | VARCHAR(20) | 所属 space（复合 PK + FK） |
 | `name` | VARCHAR(100) | 专家名称 |
 | `persona` | TEXT | 人物设定 |
@@ -133,7 +142,12 @@ CREATE TABLE core.agents (
 | `confidence` | FLOAT | 自信度 0-1 |
 | `authority` | FLOAT | 权威度坐标 0-1 |
 | `novelty` | FLOAT | 创新度坐标 0-1 |
-| `embedding` | FLOAT[] | 语义向量数组（非固定维度） |
+| `parent_id` | VARCHAR(50) | 父 Agent ID，表示由该 Agent 展开生成 |
+| `embedding` | FLOAT[] | 语义向量数组（mock=37维, local=384, openai=1536） |
+
+**约束说明**：
+- `parent_id` 为自引用外键：`REFERENCES core.agents(agent_id) ON DELETE SET NULL`
+- 历史上 `agent_id` 为 `VARCHAR(20)`，Agent 展开功能引入后升级为 `VARCHAR(50)`
 
 ### edges
 
@@ -141,8 +155,8 @@ CREATE TABLE core.agents (
 CREATE TABLE core.edges (
     edge_id VARCHAR(50) NOT NULL,
     space_id VARCHAR(20) NOT NULL REFERENCES core.spaces(space_id) ON DELETE CASCADE,
-    source_agent_id VARCHAR(20) NOT NULL,
-    target_agent_id VARCHAR(20) NOT NULL,
+    source_agent_id VARCHAR(50) NOT NULL,
+    target_agent_id VARCHAR(50) NOT NULL,
     conflict_score FLOAT NOT NULL,
     conflict_type VARCHAR(20),
     shared_ground TEXT[],
@@ -156,13 +170,16 @@ CREATE TABLE core.edges (
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `edge_id` | VARCHAR(50) | 如 `edge_agent_001_agent_002` |
-| `source_agent_id` | VARCHAR(20) | 冲突源 agent |
-| `target_agent_id` | VARCHAR(20) | 冲突目标 agent |
+| `source_agent_id` | VARCHAR(50) | 冲突源 agent |
+| `target_agent_id` | VARCHAR(50) | 冲突目标 agent |
 | `conflict_score` | FLOAT | 冲突强度 0-2 |
 | `conflict_type` | VARCHAR(20) | `fundamental` / `partial` / `minor` |
 | `shared_ground` | TEXT[] | 共识点数组 |
 | `divergence_axes` | JSONB | 分歧轴列表 |
 | `debate_recommended` | BOOLEAN | 是否推荐辩论 |
+
+**约束说明**：
+- `space_id` + `source_agent_id` + `target_agent_id` 复合外键到 `core.agents`，带 `ON DELETE CASCADE`
 
 ### debates
 
@@ -170,7 +187,7 @@ CREATE TABLE core.edges (
 CREATE TABLE core.debates (
     debate_id VARCHAR(20) PRIMARY KEY,
     space_id VARCHAR(20) NOT NULL REFERENCES core.spaces(space_id) ON DELETE CASCADE,
-    edge_id VARCHAR(50) NOT NULL,
+    edge_id VARCHAR(50) NOT NULL REFERENCES core.edges(edge_id) ON DELETE CASCADE,
     participants TEXT[] NOT NULL,
     transcript JSONB NOT NULL,
     synthesis JSONB NOT NULL,
@@ -182,6 +199,9 @@ CREATE TABLE core.debates (
 |------|------|------|
 | `transcript` | JSONB | 辩论逐字稿（round/turn 嵌套结构） |
 | `synthesis` | JSONB | 合成结果（core_conflict, agreement_points 等） |
+
+**约束说明**：
+- `edge_id` 外键到 `core.edges(edge_id) ON DELETE CASCADE`
 
 ### trajectories
 
@@ -270,9 +290,15 @@ CREATE TABLE auth.oauth_accounts (
 CREATE TABLE auth.user_spaces (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(30) NOT NULL REFERENCES auth.users(user_id) ON DELETE CASCADE,
-    space_id VARCHAR(20) NOT NULL
+    space_id VARCHAR(20) NOT NULL,
+    UNIQUE (user_id, space_id)
 );
 ```
+
+**约束说明**：
+- ORM 层面：`UserSpaceDB.space_id` 为纯 `String` 列，**无 ForeignKey**（`core.spaces` 属于 Core 服务）
+- DB 层面：`scripts/fix_schema.py` 添加了 `FOREIGN KEY (space_id) REFERENCES core.spaces(space_id) ON DELETE CASCADE`
+- DB 层面：`UNIQUE (user_id, space_id)` 防止重复关联
 
 ---
 
@@ -323,6 +349,21 @@ CREATE TABLE aggregator.presets (
 
 ---
 
+## 数据库约束修复
+
+项目初期通过 `scripts/fix_schema.py` 补全了以下约束：
+
+| 表 | 约束 | 行为 |
+|----|------|------|
+| `core.edges` | 复合 FK → `core.agents` | `ON DELETE CASCADE` |
+| `core.agents` | 自引用 FK (`parent_id`) | `ON DELETE SET NULL` |
+| `core.spaces` | FK (`user_id`) → `auth.users` | `ON DELETE SET NULL` |
+| `core.debates` | FK (`edge_id`) → `core.edges` | `ON DELETE CASCADE` |
+| `auth.user_spaces` | FK (`space_id`) → `core.spaces` | `ON DELETE CASCADE` |
+| `auth.user_spaces` | `UNIQUE(user_id, space_id)` | 防止重复 |
+
+---
+
 ## 代码层映射
 
 ### 存储分发（USE_DB 开关）
@@ -347,17 +388,30 @@ services/shared/db_config.py        → 引擎、Session、Base 定义
 
 ---
 
-## 初始化脚本
+## Alembic 迁移
+
+所有数据库变更通过 Alembic 管理。
 
 ```bash
-# 一键创建 schema + 扩展 + 表
-python3 scripts/init_db.py
+# 升级到最新版本
+alembic upgrade head
+
+# 查看当前版本
+alembic current
+
+# 创建新迁移（修改 ORM 模型后）
+alembic revision --autogenerate -m "description"
+
+# 回滚一次迁移
+alembic downgrade -1
+
+# 查看历史
+alembic history
 ```
 
-执行内容：
-1. `CREATE SCHEMA IF NOT EXISTS core, auth, aggregator`
-2. `CREATE EXTENSION IF NOT EXISTS vector`
-3. `Base.metadata.create_all(bind=engine)` — 创建所有 ORM 模型对应的表
+**配置**：`alembic/env.py` 已配置为支持多 schema PostgreSQL：
+- `target_metadata = [CoreBase.metadata, AuthBase.metadata]`
+- `include_object` 过滤无 schema 的表（避免 Alembic 内部表干扰）
 
 ---
 
@@ -367,7 +421,7 @@ python3 scripts/init_db.py
 |------|----------|------|
 | 连接池 | `pool_size=3`, `max_overflow=0` | 单机演示，最小连接数 |
 | 驱动 | `psycopg` (psycopg3) | PostgreSQL 官方同步驱动 |
-| 索引 | 仅主键/外键 | 当前数据量极小，无需额外索引 |
+| 索引 | 主键 + 外键 + UNIQUE | 当前数据量小，无需额外索引 |
 | 向量 | `FLOAT[]` 数组 | 未来大规模语义搜索可迁移到 pgvector 专用索引 |
 
 ---
