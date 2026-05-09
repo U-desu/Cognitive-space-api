@@ -123,8 +123,20 @@ export default function UniverseScene({
           <Stars radius={150} depth={80} count={2000} factor={3} saturation={0} fade speed={0.5} />
         </Suspense>
 
-        {/* Center node */}
-        <group position={[0, 0, 0]}>
+        {/* Center node — click to reset focus */}
+        <group
+          position={[0, 0, 0]}
+          onClick={(e) => {
+            e.stopPropagation()
+            onBackToGlobal()
+          }}
+          onPointerOver={() => {
+            document.body.style.cursor = 'pointer'
+          }}
+          onPointerOut={() => {
+            document.body.style.cursor = 'auto'
+          }}
+        >
           <mesh>
             <sphereGeometry args={[2.5, 32, 32]} />
             <meshStandardMaterial
