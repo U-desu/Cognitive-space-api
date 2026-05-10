@@ -112,9 +112,10 @@ export default function LandingPage() {
     setShowDedup(false)
     setLoading(true)
     dispatch({ type: 'SET_SPACE', payload: dedupSpace })
-    requestAnimationFrame(() => {
+    // 延迟 60ms 确保 LoadingBunny 渲染后再导航，阻止重复点击
+    setTimeout(() => {
       navigate(`/space/${dedupSpace.space_id}`)
-    })
+    }, 60)
   }
 
   const handleCreateNew = () => {

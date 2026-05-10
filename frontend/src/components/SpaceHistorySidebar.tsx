@@ -48,10 +48,10 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
     if (navigating) return
     setNavigating(true)
     dispatch({ type: 'SET_SPACE', payload: item })
-    // 延迟一帧确保遮罩渲染后再导航，阻止重复点击
-    requestAnimationFrame(() => {
+    // 延迟 60ms 确保 LoadingOverlay 渲染后再导航，阻止重复点击
+    setTimeout(() => {
       navigate(`/space/${item.space_id}`)
-    })
+    }, 60)
   }
 
   const accentColors: Record<string, string> = {
