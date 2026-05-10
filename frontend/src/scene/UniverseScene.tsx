@@ -20,6 +20,22 @@ const STANCE_COLORS: Record<string, string> = {
 
 const CENTER_COLOR = '#818cf8'
 const USER_AGENT_ID = '__user__'
+const AGENT_CIRCLE_RADIUS = 2.2
+const CENTER_CIRCLE_RADIUS = 2.5
+
+function offsetTowards(
+  point: [number, number, number],
+  target: [number, number, number],
+  distance: number
+): [number, number, number] {
+  const dx = target[0] - point[0]
+  const dy = target[1] - point[1]
+  const dz = target[2] - point[2]
+  const len = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  if (len === 0) return point
+  const t = distance / len
+  return [point[0] + dx * t, point[1] + dy * t, point[2] + dz * t]
+}
 
 interface Props {
   onAgentClick: (agentId: string) => void
@@ -101,6 +117,59 @@ export default function UniverseScene({
       : null
 
   // Center label
+  // Avatar images for agents
+  const AVATAR_IMAGES = useMemo(
+    () => [
+      '/avatars/极客赌徒.png',
+      '/avatars/稳健派VP.png',
+      '/avatars/焦虑中干.png',
+      '/avatars/海归博士.png',
+      '/avatars/财务自由者.png',
+      '/avatars/外包老兵.png',
+      '/avatars/转型顾问.png',
+      '/avatars/赛道投资人.png',
+      '/avatars/体制内观察员.png',
+      '/avatars/佛系产品经理.png',
+      '/avatars/草根逆袭者.png',
+      '/avatars/大厂HRD.png',
+      '/avatars/全栈工程师.png',
+      '/avatars/护城河构建者.png',
+      '/avatars/趋势洞察者.png',
+      '/avatars/AI布道者.png',
+      '/avatars/技术写作者.png',
+      '/avatars/地缘政治分析师.png',
+      '/avatars/增长黑客.png',
+      '/avatars/商务拓展.png',
+      '/avatars/基础科学研究者.png',
+      '/avatars/全球化运营.png',
+      '/avatars/安全极客.png',
+      '/avatars/运维工程师.png',
+      '/avatars/技术天花板.png',
+      '/avatars/管理教父.png',
+      '/avatars/斜杠青年.png',
+      '/avatars/焦虑螺丝钉.png',
+      '/avatars/职场老油条.png',
+      '/avatars/创业预备役.png',
+      '/avatars/女性CTO.png',
+      '/avatars/海归高管.png',
+      '/avatars/技术布道者.png',
+      '/avatars/健康至上者.png',
+      '/avatars/天才少年.png',
+      '/avatars/跨界艺术家.png',
+    ],
+    []
+  )
+
+  // Deterministic avatar assignment per agent_id
+  const agentAvatarMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const agent of agents) {
+      const hash = agent.agent_id.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+      map.set(agent.agent_id, AVATAR_IMAGES[hash % AVATAR_IMAGES.length])
+    }
+    return map
+  }, [agents, AVATAR_IMAGES])
+
   const centerLabel = space?.query
     ? space.query.length > 8
       ? space.query.slice(0, 8) + '…'
@@ -230,6 +299,7 @@ export default function UniverseScene({
                 setHighlightedId(null)
               }}
               onExpand={onExpandAgent ? () => onExpandAgent(agent.agent_id) : undefined}
+              avatarUrl={agentAvatarMap.get(agent.agent_id)}
             />
           )
         })}
@@ -237,9 +307,9 @@ export default function UniverseScene({
         {/* Parent -> child lines — dashed, theme-aware color for contrast */}
         {agents.map((agent) => {
           if (!agent.parent_id) return null
-          const from = positions.get(agent.parent_id)
-          const to = positions.get(agent.agent_id)
-          if (!from || !to) return null
+          const rawFrom = positions.get(agent.parent_id)
+          const rawTo = positions.get(agent.agent_id)
+          if (!rawFrom || !rawTo) return null
           const isSel = selectedAgent === agent.agent_id
           const isHov = hoveredAgent === agent.agent_id
           const opacity = isSel ? 0.9 : isHov ? 0.75 : 0.6
@@ -249,6 +319,10 @@ export default function UniverseScene({
           const isLineHighlighted =
             !selectedAgent &&
             (highlightedId === agent.agent_id || highlightedId === agent.parent_id)
+
+          // Offset line endpoints to circle edges
+          const from = offsetTowards(rawFrom, rawTo, AGENT_CIRCLE_RADIUS)
+          const to = offsetTowards(rawTo, rawFrom, AGENT_CIRCLE_RADIUS)
 
           return (
             <group key={`line-group-${agent.agent_id}`}>
@@ -274,8 +348,8 @@ export default function UniverseScene({
         {agents
           .filter((a) => !a.parent_id)
           .map((agent) => {
-            const pos = positions.get(agent.agent_id)
-            if (!pos) return null
+            const rawPos = positions.get(agent.agent_id)
+            if (!rawPos) return null
             const rootColor = STANCE_COLORS[agent.stance] || '#94a3b8'
             const isSel = selectedAgent === agent.agent_id
             const opacity = isSel ? 0.2 : 0.08
@@ -284,18 +358,22 @@ export default function UniverseScene({
               !selectedAgent &&
               (highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID)
 
+            // Offset line endpoints to circle edges
+            const from = offsetTowards([0, 0, 0], rawPos, CENTER_CIRCLE_RADIUS)
+            const to = offsetTowards(rawPos, [0, 0, 0], AGENT_CIRCLE_RADIUS)
+
             return (
               <group key={`root-line-group-${agent.agent_id}`}>
                 <ConnectionLine
-                  from={[0, 0, 0]}
-                  to={pos}
+                  from={from}
+                  to={to}
                   color={rootColor}
                   opacity={opacity}
                   isNetworkHighlighted={isRootLineHighlighted}
                 />
                 <ParticleTrail
-                  from={[0, 0, 0]}
-                  to={pos}
+                  from={from}
+                  to={to}
                   active={isRootLineHighlighted}
                 />
               </group>

@@ -26,7 +26,7 @@ def get_github_authorize_url(state: str = "default") -> str:
 
 async def exchange_code_for_token(code: str) -> Optional[str]:
     """用 code 换 access_token."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.post(
             "https://github.com/login/oauth/access_token",
             headers={"Accept": "application/json"},
@@ -43,7 +43,7 @@ async def exchange_code_for_token(code: str) -> Optional[str]:
 
 async def get_github_user(access_token: str) -> Optional[Dict[str, Any]]:
     """获取 GitHub 用户信息."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.get(
             "https://api.github.com/user",
             headers={

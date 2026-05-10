@@ -66,21 +66,21 @@ app.add_middleware(
 # ── Helper: HTTP client ──
 
 async def _post(service_url: str, path: str, json_data: dict = None):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.post(f"{service_url}{path}", json=json_data, timeout=60.0)
         resp.raise_for_status()
         return resp.json()
 
 
 async def _get(service_url: str, path: str):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.get(f"{service_url}{path}", timeout=30.0)
         resp.raise_for_status()
         return resp.json()
 
 
 async def _delete(service_url: str, path: str):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         resp = await client.delete(f"{service_url}{path}", timeout=30.0)
         resp.raise_for_status()
         return resp.json()
@@ -307,7 +307,7 @@ async def create_debate_stream(space_id: str, request: DebateRequest, user: Opti
     }
 
     async def event_stream():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(trust_env=False) as client:
             async with client.stream(
                 "POST",
                 f"{config.GENERATOR_URL}/generator/debates/generate-stream",

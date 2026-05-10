@@ -21,7 +21,7 @@ async def compute_edges_endpoint(request: ComputeEdgesRequest):
     Fetches space from core service, computes real semantic embeddings locally,
     then runs pure math computation.
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         space_resp = await client.get(f"{config.CORE_URL}/spaces/{request.space_id}")
         space_resp.raise_for_status()
         space = Space(**space_resp.json())
