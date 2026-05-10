@@ -182,18 +182,8 @@ export default function LandingPage() {
         className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-14 transition-all duration-300"
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* 顶部徽章 */}
-        <div
-          className="mb-6 px-4 py-1.5 rounded-full border shadow-sm"
-          style={{ backgroundColor: accent + '08', borderColor: accent + '25' }}
-        >
-          <span className="text-xs font-bold" style={{ color: accent }}>
-            🚀 知乎黑客松 Demo — 认知空间
-          </span>
-        </div>
-
         {/* 主标题区域 */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div
             className="inline-flex items-center justify-center w-20 h-20 rounded-3xl border-2 shadow-lg mb-6 glow-cyan"
             style={{ backgroundColor: accent + '10', borderColor: accent + '30' }}
@@ -203,11 +193,6 @@ export default function LandingPage() {
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-space-text tracking-tight text-glow">
             认知空间
           </h1>
-          <p className="text-space-muted text-lg max-w-lg mx-auto leading-relaxed">
-            遇到重大选择犹豫不决？<br />
-            <span className="font-bold" style={{ color: accent }}>召唤不同视角的角色</span>，
-            帮你看到分歧、理清思路
-          </p>
         </div>
 
         {/* 输入框 */}
@@ -236,39 +221,28 @@ export default function LandingPage() {
 
         {/* 热门问题卡片 */}
         <div className="w-full max-w-3xl">
-          <p className="text-center text-sm text-gray-400 mb-4 font-medium">
-            💡 大家都在纠结这些
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {hotQuestions.map((q) => {
               const Icon = ICON_MAP[q.icon_type] || Compass
               return (
                 <button
                   key={q.text}
                   onClick={() => setQuery(q.text)}
-                  className="group text-left p-5 rounded-2xl border-2 transition-all hover:shadow-md"
+                  className="group text-left p-3 rounded-xl border transition-all hover:shadow-md relative overflow-hidden"
                   style={{
                     backgroundColor: 'var(--space-surface)',
                     borderColor: accent + '15',
                   }}
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${q.color}15` }}
-                    >
-                      <Icon className="w-4 h-4" style={{ color: q.color }} />
-                    </div>
-                    <span
-                      className="text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: `${q.color}15`, color: q.color }}
-                    >
+                  <p className="text-sm text-space-text font-medium leading-snug mb-2 line-clamp-2">
+                    {q.text}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="w-3 h-3 shrink-0" style={{ color: q.color }} />
+                    <span className="text-[10px] font-bold" style={{ color: q.color }}>
                       {q.label}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 font-medium group-hover:text-gray-800 transition-colors">
-                    {q.text}
-                  </p>
                 </button>
               )
             })}
