@@ -66,7 +66,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
       {/* ═══ Top section: left icons + right labels ═══ */}
       <div className="flex shrink-0">
         {/* Left column (56px) — icons */}
-        <div className="flex flex-col items-center shrink-0 pt-6 gap-5" style={{ width: NARROW_WIDTH }}>
+        <div className="flex flex-col items-center shrink-0 pt-6 gap-6" style={{ width: NARROW_WIDTH }}>
           <button
             onClick={isOpen ? undefined : onToggle}
             onMouseEnter={() => setMainIconHover(true)}
@@ -91,10 +91,10 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
 
         {/* Right column — labels + close button, only when expanded */}
         <div
-          className="flex-1 flex flex-col pt-6 gap-5 overflow-hidden"
+          className="flex-1 flex flex-col pt-6 gap-6 overflow-hidden"
           style={{ opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s ease' }}
         >
-          <div className="w-8 h-8 flex items-center justify-center self-end">
+          <div className="w-8 h-8 flex items-center justify-center self-end mr-3">
             <button
               onClick={onToggle}
               className="w-full h-full rounded-lg flex items-center justify-center transition-all hover:scale-105 hover:bg-white/5"
@@ -114,7 +114,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
 
       {/* ═══ Divider (full width) ═══ */}
       <div
-        className="shrink-0 border-t"
+        className="shrink-0 border-t my-4 mx-3"
         style={{
           borderColor: accent + '15',
           opacity: isOpen ? 1 : 0,
@@ -124,7 +124,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
 
       {/* ═══ History list (full width, spans entire sidebar) ═══ */}
       <div
-        className="flex-1 overflow-y-auto custom-scrollbar"
+        className="flex-1 overflow-y-auto custom-scrollbar pt-2"
         style={{
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? 'auto' : 'none',
@@ -141,7 +141,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
           <div
             key={item.space_id}
             onClick={() => handleClick(item)}
-            className="group relative p-3 rounded-xl border cursor-pointer transition-all hover:shadow-sm mb-2 mx-3"
+            className="group relative p-3 rounded-xl border cursor-pointer transition-all hover:shadow-sm mb-3 mx-3"
             style={{
               backgroundColor: 'var(--space-bg)',
               borderColor: accent + '10',
