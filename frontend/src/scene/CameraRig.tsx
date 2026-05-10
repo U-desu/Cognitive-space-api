@@ -48,7 +48,7 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, glo
 
     // Preserve the user's current viewing angles (azimuth + polar)
     // Only change the distance (radius) and the target position
-    const focusDistance = 30
+    const focusDistance = 24
     const desiredDistance = targetPosition ? focusDistance : globalDistance
 
     const azimuth = startAzimuth.current

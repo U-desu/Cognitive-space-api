@@ -47,7 +47,6 @@ export default function NodeMesh({
   onExpand,
   avatarUrl,
 }: NodeMeshProps) {
-  const glowRef = useRef<THREE.Mesh>(null)
   const avatarGroupRef = useRef<THREE.Group>(null)
   const [scaleAnim, setScaleAnim] = useState(0)
 
@@ -70,9 +69,6 @@ export default function NodeMesh({
   const baseScale = isSelected ? 1.6 : isHovered ? 1.3 : 1.0
   const currentScale = baseScale * scaleAnim
 
-  // Glow pulse for selected node
-  const glowScale = isSelected ? 1.8 + Math.sin(Date.now() * 0.003) * 0.15 : 1.0
-
   // Billboard: rotate entire avatar group to face camera
   useFrame(({ camera }) => {
     if (avatarGroupRef.current) {
@@ -87,7 +83,7 @@ export default function NodeMesh({
         <group ref={avatarGroupRef}>
           {/* Semi-transparent white circle background */}
           <mesh>
-            <circleGeometry args={[2.2, 64]} />
+            <circleGeometry args={[2.6, 64]} />
             <meshBasicMaterial
               color="#ffffff"
               transparent
@@ -113,7 +109,7 @@ export default function NodeMesh({
               document.body.style.cursor = 'auto'
             }}
           >
-            <planeGeometry args={[3.6, 2.8]} />
+            <planeGeometry args={[4.2, 3.2]} />
             <meshBasicMaterial
               map={texture}
               transparent
@@ -125,7 +121,7 @@ export default function NodeMesh({
 
           {/* Stance-colored circular border ring */}
           <mesh>
-            <ringGeometry args={[2.1, 2.25, 64]} />
+            <ringGeometry args={[2.5, 2.75, 64]} />
             <meshBasicMaterial
               color={color}
               transparent
@@ -169,22 +165,10 @@ export default function NodeMesh({
         </mesh>
       )}
 
-      {/* Glow halo */}
-      {(isSelected || isHovered) && (
-        <mesh ref={glowRef} scale={glowScale}>
-          <sphereGeometry args={[2.4, 32, 32]} />
-          <meshBasicMaterial
-            color={color}
-            transparent
-            opacity={isSelected ? 0.15 : 0.08}
-          />
-        </mesh>
-      )}
-
       {/* Selection ring */}
       {isSelected && (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[2.8, 0.06, 16, 64]} />
+          <torusGeometry args={[3.2, 0.07, 16, 64]} />
           <meshBasicMaterial color={color} transparent opacity={0.5} />
         </mesh>
       )}
@@ -192,21 +176,21 @@ export default function NodeMesh({
       {/* Child indicator ring — theme-aware for contrast */}
       {isChild && (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[2.5, 0.08, 16, 64]} />
+          <torusGeometry args={[2.9, 0.09, 16, 64]} />
           <meshBasicMaterial color={darkBg ? '#e2e8f0' : '#1e293b'} transparent opacity={0.8} />
         </mesh>
       )}
 
       {/* Child count badge */}
       {hasChildren && (
-        <group position={[2.0, 1.4, 0]}>
+        <group position={[2.3, 1.6, 0]}>
           <mesh>
-            <sphereGeometry args={[0.6, 16, 16]} />
+            <sphereGeometry args={[0.65, 16, 16]} />
             <meshStandardMaterial color="white" />
           </mesh>
           <Text
             position={[0, 0, 0.3]}
-            fontSize={0.6}
+            fontSize={0.65}
             color={color}
             anchorX="center"
             anchorY="middle"
@@ -220,7 +204,7 @@ export default function NodeMesh({
       {/* Expand button (visible on hover/selected) */}
       {(isHovered || isSelected) && onExpand && (
         <group
-          position={[2.4, 0, 0]}
+          position={[2.8, 0, 0]}
           onClick={(e) => {
             e.stopPropagation()
             onExpand()
@@ -234,24 +218,24 @@ export default function NodeMesh({
           }}
         >
           <mesh>
-            <sphereGeometry args={[0.6, 16, 16]} />
+            <sphereGeometry args={[0.65, 16, 16]} />
             <meshStandardMaterial color="white" emissive="#ffffff" emissiveIntensity={0.3} />
           </mesh>
-          <Text position={[0, 0, 0.3]} fontSize={0.5} color="#333" anchorX="center" anchorY="middle">
+          <Text position={[0, 0, 0.3]} fontSize={0.55} color="#333" anchorX="center" anchorY="middle">
             🔍
           </Text>
         </group>
       )}
 
       {/* Label — custom billboard: always faces camera */}
-      <LabelGroup position={[0, -2.8, 0]}>
+      <LabelGroup position={[0, -3.2, 0]}>
         <Text
-          fontSize={1.0}
-          color="#1a202c"
+          fontSize={1.15}
+          color={darkBg ? '#ffffff' : '#1a202c'}
           anchorX="center"
           anchorY="top"
           outlineWidth={0.03}
-          outlineColor="#ffffff"
+          outlineColor={darkBg ? '#000000' : '#ffffff'}
         >
           {STANCE_EMOJI[agent.stance]} {agent.name}
         </Text>

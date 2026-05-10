@@ -18,10 +18,9 @@ const STANCE_COLORS: Record<string, string> = {
   neutral: '#fbbf24',
 }
 
-const CENTER_COLOR = '#818cf8'
 const USER_AGENT_ID = '__user__'
-const AGENT_CIRCLE_RADIUS = 2.2
-const CENTER_CIRCLE_RADIUS = 2.5
+const AGENT_CIRCLE_RADIUS = 2.6
+const CENTER_CIRCLE_RADIUS = 3.0
 
 function offsetTowards(
   point: [number, number, number],
@@ -103,9 +102,9 @@ export default function UniverseScene({
         maxDist = Math.max(maxDist, dist)
       }
     }
-    // Ensure all nodes are visible: distance = maxDist * 1.8
-    // Minimum 35 to avoid being too close when few nodes
-    return Math.max(35, maxDist * 1.8)
+    // Ensure all nodes are visible: distance = maxDist * 1.5
+    // Minimum 28 to avoid being too close when few nodes
+    return Math.max(28, maxDist * 1.5)
   }, [agents, positions])
 
   // Target position for camera focus
@@ -223,7 +222,7 @@ export default function UniverseScene({
           <Stars radius={150} depth={80} count={2000} factor={3} saturation={0} fade speed={0.5} />
         </Suspense>
 
-        {/* Center node — click to reset focus */}
+        {/* Sun center node — click to reset focus */}
         <group
           position={[0, 0, 0]}
           onClick={(e) => {
@@ -244,26 +243,37 @@ export default function UniverseScene({
             document.body.style.cursor = 'auto'
           }}
         >
+          {/* Sun center — warm orange-yellow sphere with subtle glow */}
           <mesh>
-            <sphereGeometry args={[2.5, 32, 32]} />
+            <sphereGeometry args={[3.0, 64, 64]} />
             <meshStandardMaterial
-              color={CENTER_COLOR}
-              emissive={CENTER_COLOR}
-              emissiveIntensity={0.5}
+              color="#FBBF24"
+              emissive="#FBBF24"
+              emissiveIntensity={1.5}
+              roughness={0.8}
+              metalness={0.1}
             />
           </mesh>
-          <mesh scale={1.3}>
-            <sphereGeometry args={[2.5, 32, 32]} />
-            <meshBasicMaterial color={CENTER_COLOR} transparent opacity={0.15} />
+          <mesh>
+            <sphereGeometry args={[4.0, 32, 32]} />
+            <meshBasicMaterial
+              color="#FCD34D"
+              transparent
+              opacity={0.1}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+              side={THREE.DoubleSide}
+            />
           </mesh>
-          <CenterLabel position={[0, -4.5, 0]}>
+          <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFD700" distance={60} decay={1.5} />
+          <CenterLabel position={[0, -5.0, 0]}>
             <Text
               fontSize={2.5}
-              color="#1a202c"
+              color={isDark ? '#ffffff' : '#1a202c'}
               anchorX="center"
               anchorY="top"
               outlineWidth={0.05}
-              outlineColor="#ffffff"
+              outlineColor={isDark ? '#000000' : '#ffffff'}
             >
               🌟 {centerLabel}
             </Text>
