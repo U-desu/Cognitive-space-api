@@ -1,91 +1,180 @@
 import { useMemo } from 'react'
 import type { Agent } from '../api-types'
 
-const ROOT_RADIUS = 45
-const CHILD_RADIUS_BASE = 18
+/** Layer configuration: [radius, slotCount] for each depth */
+const LAYER_CONFIG: { radius: number; slotCount: number }[] = [
+  { radius: 30, slotCount: 6 },   // depth 0: root agents (up to 6)
+  { radius: 50, slotCount: 18 },  // depth 1: children (up to 3 per root)
+  { radius: 65, slotCount: 36 },  // depth 2: grandchildren (up to 2 per child)
+]
 
-/** Deterministic hash from string to [0, 1] */
-function hash01(str: string): number {
-  let h = 0
-  for (let i = 0; i < str.length; i++) {
-    h = (h << 5) - h + str.charCodeAt(i)
-    h |= 0
+const MIN_NODE_DISTANCE = 14
+
+/** Precomputed Fibonacci sphere slots for each layer */
+const LAYER_SLOTS: [number, number, number][][] = LAYER_CONFIG.map((cfg) =>
+  fibonacciSphereSlots(cfg.radius, cfg.slotCount)
+)
+
+/** Generate evenly distributed points on a sphere using golden angle spiral */
+function fibonacciSphereSlots(radius: number, count: number): [number, number, number][] {
+  const points: [number, number, number][] = []
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / (count - 1)) * 2
+    const r = Math.sqrt(1 - y * y)
+    const theta = goldenAngle * i
+    points.push([
+      Math.cos(theta) * r * radius,
+      y * radius,
+      Math.sin(theta) * r * radius,
+    ])
   }
-  return (Math.abs(h) % 10000) / 10000
+  return points
 }
 
-/** Deterministic random point inside sphere based on agent_id seed. */
-function seededPointInSphere(seed: string, radius: number): [number, number, number] {
-  // Use multiple hashes for x, y, z to avoid correlation
-  const hx = hash01(seed + '_x')
-  const hy = hash01(seed + '_y')
-  const hz = hash01(seed + '_z')
-
-  // Box-Muller-like approach for uniform sphere distribution
-  // Convert uniform randoms to spherical coordinates
-  const u = hx * 2 - 1  // -1 to 1 (cos(theta))
-  const theta = hy * Math.PI * 2  // 0 to 2pi
-  const r = Math.cbrt(hz) * radius  // cube root for uniform volume
-
-  const sinTheta = Math.sqrt(1 - u * u)
-  const x = r * sinTheta * Math.cos(theta)
-  const y = r * u
-  const z = r * sinTheta * Math.sin(theta)
-
-  return [x, y, z]
+function distance(a: [number, number, number], b: [number, number, number]): number {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
 }
 
-/** Compute 3D positions for all agents. */
+/** Get agent depth (0 = root, 1 = child, 2 = grandchild) */
+function getDepth(agent: Agent, agents: Agent[]): number {
+  let depth = 0
+  let current = agent
+  while (current.parent_id) {
+    depth++
+    const parent = agents.find((a) => a.agent_id === current.parent_id)
+    if (!parent) break
+    current = parent
+  }
+  return depth
+}
+
+/** Assign the best available slot for a node at given depth around its parent */
+function assignSlot(
+  depth: number,
+  parentPos: [number, number, number],
+  occupied: [number, number, number][]
+): [number, number, number] {
+  const layerIdx = Math.min(depth, LAYER_CONFIG.length - 1)
+  const slots = LAYER_SLOTS[layerIdx]
+
+  // Find all unoccupied slots
+  const usedSet = new Set<number>()
+  for (const pos of occupied) {
+    let bestIdx = -1
+    let bestDist = Infinity
+    for (let i = 0; i < slots.length; i++) {
+      const d = distance(pos, slots[i])
+      if (d < bestDist) {
+        bestDist = d
+        bestIdx = i
+      }
+    }
+    if (bestIdx >= 0 && bestDist < 8) {
+      usedSet.add(bestIdx)
+    }
+  }
+
+  const available = slots.map((slot, idx) => ({ slot, idx })).filter((s) => !usedSet.has(s.idx))
+
+  if (available.length === 0) {
+    // Fallback: place near parent if no slots left
+    return fallbackNearParent(parentPos, layerIdx)
+  }
+
+  // Score each available slot
+  const scored = available.map(({ slot }) => {
+    const toParent = distance(slot, parentPos)
+    let toOthers = Infinity
+    for (const other of occupied) {
+      toOthers = Math.min(toOthers, distance(slot, other))
+    }
+    // Prefer far from others, but not too far from parent
+    const score = toOthers - toParent * 0.3
+    return { slot, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  let chosen = scored[0].slot
+
+  // Enforce minimum distance by nudging away if needed
+  for (const other of occupied) {
+    const d = distance(chosen, other)
+    if (d < MIN_NODE_DISTANCE && d > 0) {
+      const scale = MIN_NODE_DISTANCE / d
+      chosen = [
+        chosen[0] + (chosen[0] - other[0]) * (scale - 1) * 0.5,
+        chosen[1] + (chosen[1] - other[1]) * (scale - 1) * 0.5,
+        chosen[2] + (chosen[2] - other[2]) * (scale - 1) * 0.5,
+      ]
+    }
+  }
+
+  return chosen
+}
+
+/** Fallback placement when all slots are taken */
+function fallbackNearParent(
+  parentPos: [number, number, number],
+  layerIdx: number
+): [number, number, number] {
+  const radius = LAYER_CONFIG[layerIdx].radius
+  // Place at a fixed offset from parent, on the sphere surface
+  const dir = [parentPos[0], parentPos[1] + radius * 0.3, parentPos[2] + radius * 0.2]
+  const len = Math.sqrt(dir[0] ** 2 + dir[1] ** 2 + dir[2] ** 2)
+  if (len === 0) return [0, radius, 0]
+  const scale = radius / len
+  return [dir[0] * scale, dir[1] * scale, dir[2] * scale]
+}
+
+/** Compute 3D positions for all agents using layered sphere slots */
 export function useLayout3D(agents: Agent[]): Map<string, [number, number, number]> {
   return useMemo(() => {
     const positions = new Map<string, [number, number, number]>()
-    const childrenMap = new Map<string, Agent[]>()
 
+    // Group agents by depth
+    const byDepth: Agent[][] = [[], [], []]
     for (const agent of agents) {
-      if (agent.parent_id) {
-        const list = childrenMap.get(agent.parent_id) || []
-        list.push(agent)
-        childrenMap.set(agent.parent_id, list)
-      }
+      const depth = getDepth(agent, agents)
+      const idx = Math.min(depth, 2)
+      byDepth[idx].push(agent)
     }
 
-    // Place root nodes (no parent) uniformly inside the root sphere
-    const roots = agents.filter((a) => !a.parent_id)
-    for (const root of roots) {
-      const pos = seededPointInSphere(root.agent_id, ROOT_RADIUS)
+    // Place layer 0 (roots) — center is origin
+    const occupied: [number, number, number][] = []
+    for (const root of byDepth[0]) {
+      const pos = assignSlot(0, [0, 0, 0], occupied)
       positions.set(root.agent_id, pos)
+      occupied.push(pos)
     }
 
-    // Recursively place children around their parent
-    function placeChildren(parentId: string, depth: number) {
-      const children = childrenMap.get(parentId)
-      if (!children || children.length === 0) return
-
-      const parentPos = positions.get(parentId)
-      if (!parentPos) return
-
-      const childRadius = CHILD_RADIUS_BASE * Math.pow(0.7, depth)
-
-      for (const child of children) {
-        // Offset from parent using seeded random
-        const offset = seededPointInSphere(child.agent_id, childRadius)
-        positions.set(child.agent_id, [
-          parentPos[0] + offset[0],
-          parentPos[1] + offset[1],
-          parentPos[2] + offset[2],
-        ])
-        placeChildren(child.agent_id, depth + 1)
-      }
+    // Place layer 1 (children)
+    for (const child of byDepth[1]) {
+      const parentPos = child.parent_id ? positions.get(child.parent_id) : undefined
+      const anchor = parentPos || [0, 0, 0]
+      const pos = assignSlot(1, anchor, occupied)
+      positions.set(child.agent_id, pos)
+      occupied.push(pos)
     }
 
-    for (const root of roots) {
-      placeChildren(root.agent_id, 0)
+    // Place layer 2 (grandchildren)
+    for (const grandchild of byDepth[2]) {
+      const parentPos = grandchild.parent_id ? positions.get(grandchild.parent_id) : undefined
+      const anchor = parentPos || [0, 0, 0]
+      const pos = assignSlot(2, anchor, occupied)
+      positions.set(grandchild.agent_id, pos)
+      occupied.push(pos)
     }
 
-    // Fallback for any orphaned agents
+    // Fallback for any orphaned agents beyond layer 2
     for (const agent of agents) {
       if (!positions.has(agent.agent_id)) {
-        positions.set(agent.agent_id, seededPointInSphere(agent.agent_id, ROOT_RADIUS * 1.2))
+        const depth = getDepth(agent, agents)
+        const parentPos = agent.parent_id ? positions.get(agent.parent_id) : undefined
+        const anchor = parentPos || [0, 0, 0]
+        const pos = assignSlot(depth, anchor, occupied)
+        positions.set(agent.agent_id, pos)
+        occupied.push(pos)
       }
     }
 
