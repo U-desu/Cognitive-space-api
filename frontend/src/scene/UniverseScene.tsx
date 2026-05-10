@@ -6,6 +6,7 @@ import { useSpaceState } from '../store/SpaceContext'
 import { useLayout3D, useChildrenMap } from './useLayout3D'
 import NodeMesh from './NodeMesh'
 import ConnectionLine from './ConnectionLine'
+import ParticleTrail from './ParticleTrail'
 import CameraRig from './CameraRig'
 import BackgroundThemeSwitcher, { getSavedTheme } from '../components/BackgroundThemeSwitcher'
 import type { Agent } from '../api-types'
@@ -250,16 +251,22 @@ export default function UniverseScene({
             (highlightedId === agent.agent_id || highlightedId === agent.parent_id)
 
           return (
-            <ConnectionLine
-              key={`line-${agent.agent_id}`}
-              from={from}
-              to={to}
-              color={lineColor}
-              opacity={opacity}
-              dashed
-              dashScale={2.5}
-              isNetworkHighlighted={isLineHighlighted}
-            />
+            <group key={`line-group-${agent.agent_id}`}>
+              <ConnectionLine
+                from={from}
+                to={to}
+                color={lineColor}
+                opacity={opacity}
+                dashed
+                dashScale={2.5}
+                isNetworkHighlighted={isLineHighlighted}
+              />
+              <ParticleTrail
+                from={from}
+                to={to}
+                active={isLineHighlighted}
+              />
+            </group>
           )
         })}
 
@@ -278,14 +285,20 @@ export default function UniverseScene({
               (highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID)
 
             return (
-              <ConnectionLine
-                key={`root-line-${agent.agent_id}`}
-                from={[0, 0, 0]}
-                to={pos}
-                color={rootColor}
-                opacity={opacity}
-                isNetworkHighlighted={isRootLineHighlighted}
-              />
+              <group key={`root-line-group-${agent.agent_id}`}>
+                <ConnectionLine
+                  from={[0, 0, 0]}
+                  to={pos}
+                  color={rootColor}
+                  opacity={opacity}
+                  isNetworkHighlighted={isRootLineHighlighted}
+                />
+                <ParticleTrail
+                  from={[0, 0, 0]}
+                  to={pos}
+                  active={isRootLineHighlighted}
+                />
+              </group>
             )
           })}
 
