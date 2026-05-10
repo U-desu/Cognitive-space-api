@@ -40,7 +40,7 @@ from services.shared.models import (
     ExpandAgentRequest,
     AgentExpandPayload,
 )
-from services.gateway.dependencies import get_current_user, require_user
+from services.gateway.dependencies import get_current_user, require_user, get_owner_id
 from typing import Optional
 from services.gateway.auth.jwt import create_access_token, COOKIE_NAME
 from services.gateway.auth.password_auth import register_user, authenticate_user
@@ -89,14 +89,56 @@ async def _delete(service_url: str, path: str):
 # ── Orchestrated: Space Creation ──
 
 @app.post("/spaces", response_model=Space)
-async def create_space(request: CreateSpaceRequest, user: Optional[dict] = Depends(get_current_user)):
-    """Orchestrated space creation:
-    1. Call generator to create agents
-    2. Construct Space object
-    3. Store in core service
+async def create_space(
+    request: CreateSpaceRequest,
+    req: Request,
+    user: Optional[dict] = Depends(get_current_user),
+):
+    """Orchestrated space creation with deduplication:
+    1. Check for similar existing space (owner-scoped)
+    2. If found, return existing space
+    3. Otherwise: generate agents + store space
     4. Link to user (if logged in)
     """
-    # 1. Generate agents
+    owner_id, owner_type = get_owner_id(req, user)
+
+    # 1. Compute query embedding for deduplication
+    try:
+        embed_resp = await _post(
+            config.COMPUTE_URL,
+            "/compute/embed",
+            {"text": request.query},
+        )
+        query_embedding = embed_resp.get("embedding", [])
+    except Exception:
+        # If embedding fails, proceed without dedup
+        query_embedding = []
+
+    # 2. Check for similar existing space
+    if owner_id and query_embedding:
+        try:
+            dedup_resp = await _post(
+                config.CORE_URL,
+                "/spaces/similarity-search",
+                {
+                    "owner_id": owner_id,
+                    "query_embedding": query_embedding,
+                    "threshold": 0.85,
+                },
+            )
+            if dedup_resp.get("matched"):
+                existing_space = Space(**dedup_resp["space"])
+                # Return with header indicating reuse
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    content=existing_space.model_dump(),
+                    headers={"X-Space-Reused": "true", "X-Space-Similarity": str(dedup_resp.get("similarity", 0))},
+                )
+        except Exception:
+            # If dedup check fails, proceed with creation
+            pass
+
+    # 3. Generate agents
     gen_resp = await _post(
         config.GENERATOR_URL,
         "/generator/agents/generate",
@@ -105,7 +147,7 @@ async def create_space(request: CreateSpaceRequest, user: Optional[dict] = Depen
     agents_raw = gen_resp.get("agents", [])
     agents = [Agent(**a) for a in agents_raw]
 
-    # 2. Construct space
+    # 4. Construct space
     space_id = f"space_{uuid.uuid4().hex[:8]}"
     space = Space(
         space_id=space_id,
@@ -121,12 +163,14 @@ async def create_space(request: CreateSpaceRequest, user: Optional[dict] = Depen
             estimated_nodes=len(agents),
         ),
         user_id=user["user_id"] if user else None,
+        guest_id=owner_id if owner_type == "guest" else None,
+        query_embedding=query_embedding if query_embedding else None,
     )
 
-    # 3. Store in core
+    # 5. Store in core
     await _post(config.CORE_URL, "/spaces/ingest", space.model_dump())
 
-    # 4. Link to user (only if logged in)
+    # 6. Link to user (only if logged in)
     if user:
         link_space_to_user(user["user_id"], space_id)
 
@@ -144,6 +188,19 @@ async def get_my_spaces(user: dict = Depends(require_user)):
         data = await _get(config.CORE_URL, f"/spaces/{sid}")
         spaces.append(Space(**data))
     return spaces
+
+
+@app.get("/spaces/history")
+async def get_space_history(req: Request, user: Optional[dict] = Depends(get_current_user)):
+    """Get space history for the current user or guest.
+
+    Works for both authenticated users and visitors (via X-Guest-ID header).
+    """
+    owner_id, _ = get_owner_id(req, user)
+    if not owner_id:
+        return []
+    spaces_data = await _get(config.CORE_URL, f"/spaces/history/{owner_id}")
+    return [Space(**s) for s in spaces_data]
 
 
 @app.get("/spaces/{space_id}", response_model=Space)

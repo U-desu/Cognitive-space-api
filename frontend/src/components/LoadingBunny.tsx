@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme/ThemeContext'
+import Logo from './Logo'
 
 interface Props {
   query: string
@@ -10,7 +11,7 @@ const MESSAGES = [
   '召唤不同视角的角色...',
   '构建认知空间...',
   '分析立场与冲突...',
-  '马上就好啦 🧠',
+  '马上就好啦',
 ]
 
 export default function LoadingBunny({ query }: Props) {
@@ -57,7 +58,7 @@ export default function LoadingBunny({ query }: Props) {
             className="w-24 h-24 rounded-full border flex items-center justify-center animate-pulse"
             style={{ borderColor: accent.primary + '50' }}
           >
-            <span className="text-4xl">🧠</span>
+            <Logo size={48} />
           </div>
         </div>
         {/* 旋转光环 */}

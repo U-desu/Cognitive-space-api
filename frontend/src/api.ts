@@ -15,10 +15,33 @@ import type {
 
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
 
+/** 获取或创建访客 ID */
+function getGuestId(): string | null {
+  let gid = localStorage.getItem('cs_guest_id')
+  if (!gid) {
+    gid = `guest_${crypto.randomUUID()}`
+    localStorage.setItem('cs_guest_id', gid)
+  }
+  return gid
+}
+
+/** 构建请求头，自动携带 X-Guest-ID */
+function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extra,
+  }
+  const guestId = getGuestId()
+  if (guestId) {
+    headers['X-Guest-ID'] = guestId
+  }
+  return headers
+}
+
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(),
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   })
@@ -28,6 +51,17 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    headers: buildHeaders({}),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+  return res.json()
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: buildHeaders({}),
     credentials: 'include',
   })
   if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
@@ -36,7 +70,19 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   // Core / Gateway orchestrated
-  createSpace: (req: CreateSpaceRequest) => post<Space>('/spaces', req),
+  createSpace: async (req: CreateSpaceRequest): Promise<{ space: Space; reused: boolean; similarity: number }> => {
+    const res = await fetch(`${BASE}/spaces`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(req),
+    })
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+    const space = await res.json()
+    const reused = res.headers.get('X-Space-Reused') === 'true'
+    const similarity = parseFloat(res.headers.get('X-Similarity') || '0')
+    return { space, reused, similarity }
+  },
   getSpace: (id: string) => get<Space>(`/spaces/${id}`),
   computeEdges: (id: string) =>
     post<{ edges: Edge[]; space_stats: SpaceStats }>(`/spaces/${id}/edges`),
@@ -51,6 +97,8 @@ export const api = {
   exportSpace: (id: string, payload: { format: string }) =>
     post<Record<string, unknown>>(`/spaces/${id}/export`, payload),
   getMySpaces: () => get<Space[]>('/spaces/my'),
+  getSpaceHistory: () => get<Space[]>('/spaces/history'),
+  deleteSpaceHistory: (spaceId: string) => del<void>(`/spaces/${spaceId}`),
   expandAgent: (spaceId: string, agentId: string, req: AgentExpandPayload) =>
     post<Space>(`/spaces/${spaceId}/agents/${agentId}/expand`, req),
 

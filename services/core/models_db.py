@@ -25,6 +25,8 @@ class SpaceDB(Base):
     dimensions = Column(JSONB, nullable=False, default=dict)
     metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
     user_id = Column(String(30), nullable=True)
+    guest_id = Column(String(64), nullable=True, index=True)
+    query_embedding = Column(PG_ARRAY(Float), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -5,6 +5,7 @@ import { useAuth } from './auth/useAuth'
 import LoginPage from './auth/LoginPage'
 import LandingPage from './components/LandingPage'
 import SpacePage from './components/SpacePage'
+import Logo from './components/Logo'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -13,7 +14,7 @@ function AppContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-space-bg">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">🧠</div>
+          <div className="mb-4 animate-bounce"><Logo size={48} /></div>
           <p className="text-space-muted text-sm">加载中...</p>
         </div>
       </div>

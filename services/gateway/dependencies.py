@@ -29,3 +29,16 @@ async def require_user(request: Request) -> dict:
             detail="Not authenticated",
         )
     return user
+
+
+def get_owner_id(request: Request, user: Optional[dict] = None) -> tuple[Optional[str], Optional[str]]:
+    """Resolve owner identity from user or guest header.
+
+    Returns (owner_id, owner_type) where owner_type is 'user' or 'guest'.
+    """
+    if user:
+        return user.get("user_id"), "user"
+    guest_id = request.headers.get("X-Guest-ID")
+    if guest_id:
+        return guest_id, "guest"
+    return None, None

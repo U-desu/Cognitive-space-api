@@ -10,7 +10,7 @@ No database needed — all inputs come via HTTP requests, outputs returned immed
 """
 
 from fastapi import FastAPI
-from services.compute.routers import edges, metrics
+from services.compute.routers import edges, metrics, embed
 
 app = FastAPI(
     title="Compute Service",
@@ -20,6 +20,7 @@ app = FastAPI(
 
 app.include_router(edges.router)
 app.include_router(metrics.router)
+app.include_router(embed.router)
 
 
 @app.get("/health")

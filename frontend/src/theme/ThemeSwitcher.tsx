@@ -28,7 +28,7 @@ export default function ThemeSwitcher() {
         title="切换主题"
       >
         <Palette className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">{current.icon} {current.name}</span>
+        <span className="hidden sm:inline flex items-center gap-1"><img src={current.icon} alt="" className="w-3.5 h-3.5 object-contain inline-block" /> {current.name}</span>
       </button>
 
       {open && (
@@ -49,13 +49,13 @@ export default function ThemeSwitcher() {
                 }`}
               >
                 <span
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{
                     backgroundColor: t.accent + '18',
                     border: `1px solid ${t.accent}30`,
                   }}
                 >
-                  {t.icon}
+                  <img src={t.icon} alt="" className="w-5 h-5 object-contain" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{t.name}</p>

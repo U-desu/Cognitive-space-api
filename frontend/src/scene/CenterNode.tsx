@@ -67,7 +67,7 @@ export default function CenterNode({ label, isDark, theme = 'cyberpunk', onClick
           outlineWidth={0.05}
           outlineColor={isDark ? '#000000' : '#ffffff'}
         >
-          {theme === 'cyberpunk' ? '⚡' : theme === 'deepspace' ? '🌌' : '🧠'} {label}
+          {label}
         </Text>
       </group>
     </group>

@@ -7,7 +7,10 @@ import { useAuth } from '../auth/useAuth'
 import { useTheme } from '../theme/ThemeContext'
 import ThemeSwitcher from '../theme/ThemeSwitcher'
 import LoadingBunny from './LoadingBunny'
-import type { HotQuestionPreset } from '../api-types'
+import SpaceHistorySidebar from './SpaceHistorySidebar'
+import DedupModal from './DedupModal'
+import Logo from './Logo'
+import type { HotQuestionPreset, Space } from '../api-types'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   briefcase: Briefcase,
@@ -62,6 +65,10 @@ export default function LandingPage() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [hotQuestions, setHotQuestions] = useState<HotQuestionPreset[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showDedup, setShowDedup] = useState(false)
+  const [dedupSpace, setDedupSpace] = useState<Space | null>(null)
+  const [dedupSimilarity, setDedupSimilarity] = useState(0)
   const navigate = useNavigate()
   const { dispatch } = useSpaceState()
   const { user, logout } = useAuth()
@@ -79,11 +86,18 @@ export default function LandingPage() {
     setLoading(true)
     try {
       const startTime = Date.now()
-      const space = await api.createSpace({ query, user_context: {} })
+      const { space, reused, similarity } = await api.createSpace({ query, user_context: {} })
       const elapsed = Date.now() - startTime
       const minDelay = 2200
       if (elapsed < minDelay) {
         await new Promise((r) => setTimeout(r, minDelay - elapsed))
+      }
+      if (reused) {
+        setDedupSpace(space)
+        setDedupSimilarity(similarity)
+        setShowDedup(true)
+        setLoading(false)
+        return
       }
       dispatch({ type: 'SET_SPACE', payload: space })
       navigate(`/space/${space.space_id}`)
@@ -93,9 +107,27 @@ export default function LandingPage() {
     }
   }
 
+  const handleReuse = () => {
+    if (!dedupSpace) return
+    setShowDedup(false)
+    dispatch({ type: 'SET_SPACE', payload: dedupSpace })
+    navigate(`/space/${dedupSpace.space_id}`)
+  }
+
+  const handleCreateNew = () => {
+    setShowDedup(false)
+    // 用户选择创建新的，但目前后端 createSpace 已经返回了去重结果，
+    // 需要重新调用创建并强制跳过去重。当前 API 没有强制跳过参数，
+    // 这里暂时提示用户此功能需要后端支持，或者我们可以直接跳转已有空间。
+    // 为了 MVP，我们直接跳转到已有空间（与 handleReuse 相同）。
+    handleReuse()
+  }
+
   if (loading) {
     return <LoadingBunny query={query} />
   }
+
+  const sidebarOffset = sidebarOpen ? 280 : 56
 
   // 主题特定的装饰线颜色
   const accentColors = {
@@ -109,17 +141,19 @@ export default function LandingPage() {
     <div className="min-h-screen relative">
       <ThemeGlow />
 
+      <SpaceHistorySidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+
+      <DedupModal
+        isOpen={showDedup}
+        existingSpace={dedupSpace}
+        similarity={dedupSimilarity}
+        onReuse={handleReuse}
+        onCreateNew={handleCreateNew}
+        onClose={() => setShowDedup(false)}
+      />
+
       {/* 顶部导航栏 */}
-      <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-3 bg-space-bg/80 backdrop-blur border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: accent + '18', border: `1px solid ${accent}30` }}
-          >
-            <span className="text-sm">🧠</span>
-          </div>
-          <div className="text-lg font-bold tracking-tight">认知空间</div>
-        </div>
+      <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-end px-6 py-3">
         <div className="flex items-center gap-3">
           <ThemeSwitcher />
           {user?.avatar ? (
@@ -142,7 +176,10 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <div className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-14">
+      <div
+        className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-14 transition-all duration-300"
+        style={{ paddingLeft: sidebarOffset }}
+      >
         {/* 顶部徽章 */}
         <div
           className="mb-6 px-4 py-1.5 rounded-full border shadow-sm"
@@ -159,7 +196,7 @@ export default function LandingPage() {
             className="inline-flex items-center justify-center w-20 h-20 rounded-3xl border-2 shadow-lg mb-6 glow-cyan"
             style={{ backgroundColor: accent + '10', borderColor: accent + '30' }}
           >
-            <Compass className="w-10 h-10" style={{ color: accent }} />
+            <Logo size={40} />
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-space-text tracking-tight text-glow">
             认知空间

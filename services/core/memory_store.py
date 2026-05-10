@@ -31,8 +31,48 @@ def get_space(space_id: str) -> Optional[Space]:
     return _spaces.get(space_id)
 
 
+def get_user_spaces(user_id: str) -> list[str]:
+    """Get space IDs linked to a user."""
+    return _user_spaces.get(user_id, [])
+
+
 def list_spaces() -> list[Space]:
     return list(_spaces.values())
+
+
+def find_similar_space(owner_id: str, query_embedding: list[float], threshold: float = 0.85) -> Optional[Space]:
+    """Find the most similar space for the given owner."""
+    import math
+    best_space = None
+    best_score = 0.0
+    for space in _spaces.values():
+        if space.user_id != owner_id and space.guest_id != owner_id:
+            continue
+        if not space.query_embedding:
+            continue
+        # cosine similarity
+        dot = sum(a * b for a, b in zip(query_embedding, space.query_embedding))
+        norm_a = math.sqrt(sum(x * x for x in query_embedding))
+        norm_b = math.sqrt(sum(x * x for x in space.query_embedding))
+        if norm_a == 0 or norm_b == 0:
+            continue
+        score = dot / (norm_a * norm_b)
+        if score > best_score:
+            best_score = score
+            best_space = space
+    if best_space and best_score >= threshold:
+        return best_space
+    return None
+
+
+def list_space_history(owner_id: str) -> list[Space]:
+    """List all spaces for the given owner (user or guest)."""
+    spaces = [
+        s for s in _spaces.values()
+        if s.user_id == owner_id or s.guest_id == owner_id
+    ]
+    # Sort by creation time (space_id prefix has no timestamp, use arbitrary stable order)
+    return spaces
 
 
 def delete_space(space_id: str) -> bool:

@@ -30,6 +30,8 @@ def _space_to_db(space: Space) -> SpaceDB:
         dimensions=dims,
         metadata_=space.metadata.model_dump() if space.metadata else {},
         user_id=space.user_id,
+        guest_id=space.guest_id,
+        query_embedding=space.query_embedding,
     )
 
 
@@ -46,6 +48,8 @@ def _space_from_db(row: SpaceDB) -> Space:
         agents=[],
         metadata=SpaceMetadata(**(row.metadata_ or {})),
         user_id=row.user_id,
+        guest_id=row.guest_id,
+        query_embedding=row.query_embedding,
     )
 
 
@@ -189,6 +193,20 @@ def get_space(space_id: str) -> Optional[Space]:
             pass
 
 
+def get_user_spaces(user_id: str) -> list[str]:
+    """Get space IDs linked to a user (via user_id on spaces table)."""
+    session_gen = get_db_session()
+    session = next(session_gen)
+    try:
+        rows = session.query(SpaceDB.space_id).filter_by(user_id=user_id).all()
+        return [r.space_id for r in rows]
+    finally:
+        try:
+            next(session_gen, None)
+        except StopIteration:
+            pass
+
+
 def add_agents_to_space(space_id: str, agents: list["Agent"]) -> None:
     """Append new agents to an existing space (used by expand)."""
     session_gen = get_db_session()
@@ -231,6 +249,67 @@ def list_spaces() -> list[Space]:
     session = next(session_gen)
     try:
         rows = session.query(SpaceDB).all()
+        spaces = []
+        for row in rows:
+            space = _space_from_db(row)
+            agents = session.query(AgentDB).filter_by(space_id=row.space_id).all()
+            space.agents = [_agent_from_db(a) for a in agents]
+            spaces.append(space)
+        return spaces
+    finally:
+        try:
+            next(session_gen, None)
+        except StopIteration:
+            pass
+
+
+def find_similar_space(owner_id: str, query_embedding: list[float], threshold: float = 0.85) -> Optional[Space]:
+    """Find the most similar space for the given owner."""
+    import math
+    session_gen = get_db_session()
+    session = next(session_gen)
+    try:
+        from sqlalchemy import or_
+        rows = session.query(SpaceDB).filter(
+            or_(SpaceDB.user_id == owner_id, SpaceDB.guest_id == owner_id)
+        ).filter(SpaceDB.query_embedding.isnot(None)).all()
+        best_space = None
+        best_score = 0.0
+        for row in rows:
+            emb = row.query_embedding
+            if not emb:
+                continue
+            dot = sum(a * b for a, b in zip(query_embedding, emb))
+            norm_a = math.sqrt(sum(x * x for x in query_embedding))
+            norm_b = math.sqrt(sum(x * x for x in emb))
+            if norm_a == 0 or norm_b == 0:
+                continue
+            score = dot / (norm_a * norm_b)
+            if score > best_score:
+                best_score = score
+                best_space = row
+        if best_space and best_score >= threshold:
+            space = _space_from_db(best_space)
+            agents = session.query(AgentDB).filter_by(space_id=best_space.space_id).all()
+            space.agents = [_agent_from_db(a) for a in agents]
+            return space
+        return None
+    finally:
+        try:
+            next(session_gen, None)
+        except StopIteration:
+            pass
+
+
+def list_space_history(owner_id: str) -> list[Space]:
+    """List all spaces for the given owner (user or guest), ordered by creation time desc."""
+    session_gen = get_db_session()
+    session = next(session_gen)
+    try:
+        from sqlalchemy import or_
+        rows = session.query(SpaceDB).filter(
+            or_(SpaceDB.user_id == owner_id, SpaceDB.guest_id == owner_id)
+        ).order_by(SpaceDB.created_at.desc()).all()
         spaces = []
         for row in rows:
             space = _space_from_db(row)

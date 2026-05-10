@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
 import UniverseScene from '../scene/UniverseScene'
@@ -7,10 +7,12 @@ import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
 import ThemeSwitcher from '../theme/ThemeSwitcher'
-import { Loader2, Share2 } from 'lucide-react'
+import { Loader2, Share2, ArrowLeft } from 'lucide-react'
+import Logo from './Logo'
 
 export default function SpacePage() {
   const { spaceId } = useParams<{ spaceId: string }>()
+  const navigate = useNavigate()
   const { state, dispatch } = useSpaceState()
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'global' | 'focus'>('global')
@@ -96,8 +98,16 @@ export default function SpacePage() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-black/5 text-gray-500 transition-colors"
+          title="返回首页"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-xs font-bold text-indigo-400 shrink-0">🧠 认知空间</span>
+          <Logo size={20} />
+          <span className="text-xs font-bold text-indigo-400 shrink-0">认知空间</span>
           <span className="text-gray-300">·</span>
           <h2 className="text-sm font-bold text-gray-700 truncate">
             {state.space.query}

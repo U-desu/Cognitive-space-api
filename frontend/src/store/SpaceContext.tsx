@@ -8,6 +8,7 @@ interface State {
   trajectory: Trajectory | null
   loading: boolean
   error: string | null
+  spacesHistory: Space[]
 }
 
 type Action =
@@ -18,6 +19,8 @@ type Action =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'APPEND_AGENTS'; payload: { agents: Space['agents']; edges?: Edge[] } }
+  | { type: 'SET_HISTORY'; payload: Space[] }
+  | { type: 'REMOVE_HISTORY_ITEM'; payload: string }
 
 const initialState: State = {
   space: null,
@@ -26,12 +29,17 @@ const initialState: State = {
   trajectory: null,
   loading: false,
   error: null,
+  spacesHistory: [],
 }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SET_SPACE':
       return { ...state, space: action.payload, edges: [], debate: null, trajectory: null }
+    case 'SET_HISTORY':
+      return { ...state, spacesHistory: action.payload }
+    case 'REMOVE_HISTORY_ITEM':
+      return { ...state, spacesHistory: state.spacesHistory.filter(h => h.space_id !== action.payload) }
     case 'SET_EDGES':
       return { ...state, edges: action.payload }
     case 'SET_DEBATE':
@@ -61,6 +69,8 @@ const SpaceContext = createContext<{
   state: State
   dispatch: React.Dispatch<Action>
 } | null>(null)
+
+export type { State, Action }
 
 export function SpaceProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from './useAuth'
 import { useTheme } from '../theme/ThemeContext'
 import ThemeSwitcher from '../theme/ThemeSwitcher'
+import Logo from '../components/Logo'
 
 /* ─── 主题感知背景装饰 ─── */
 function TechBackground() {
@@ -139,7 +140,7 @@ export default function LoginPage() {
                 border: `1px solid ${accent}30`,
               }}
             >
-              <span className="text-3xl">🧠</span>
+              <Logo size={36} />
             </div>
             <h1 className="text-2xl font-extrabold text-space-text tracking-tight">
               认知空间

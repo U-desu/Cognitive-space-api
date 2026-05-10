@@ -26,6 +26,10 @@ export interface Space {
   dimensions: Record<string, Dimension>
   agents: Agent[]
   metadata: SpaceMetadata
+  user_id?: string
+  guest_id?: string
+  query_embedding?: number[]
+  created_at?: string
 }
 
 export interface Dimension {
@@ -170,4 +174,20 @@ export interface User {
   avatar?: string
   auth_provider: string
   created_at: number
+}
+
+// ── History / Deduplication types ──
+
+export interface SpaceHistoryItem {
+  space_id: string
+  query: string
+  created_at: string
+  agent_count: number
+}
+
+/** createSpace 的返回结构（包含去重信息） */
+export interface CreateSpaceResult {
+  space: Space
+  reused: boolean
+  similarity: number
 }

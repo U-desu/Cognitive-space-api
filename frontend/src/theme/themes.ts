@@ -8,26 +8,29 @@ export interface ThemeMeta {
   accent: string
 }
 
+/** 统一品牌 Logo */
+export const BRAND_LOGO = '/icon/icon.png'
+
 export const THEMES: ThemeMeta[] = [
   {
     id: 'cyberpunk',
     name: '霓虹迷城',
     tagline: '赛博朋克 · 霓虹数据流',
-    icon: '⚡',
+    icon: '/icon/icon.png',
     accent: '#00f0ff',
   },
   {
     id: 'deepspace',
     name: '星际认知',
     tagline: '深空探索 · 星河图谱',
-    icon: '🌌',
+    icon: '/icon/icon.png',
     accent: '#3b82f6',
   },
   {
     id: 'matrix',
     name: '神经织网',
     tagline: '认知矩阵 · 神经网络',
-    icon: '🧠',
+    icon: '/icon/icon.png',
     accent: '#00ff88',
   },
 ]
