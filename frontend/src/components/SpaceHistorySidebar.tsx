@@ -4,6 +4,7 @@ import { Trash2, MessageSquare } from 'lucide-react'
 import { useSpaceState } from '../store/SpaceContext'
 import { useTheme } from '../theme/ThemeContext'
 import { api } from '../api'
+import LoadingOverlay from './LoadingOverlay'
 import type { Space } from '../api-types'
 
 interface Props {
@@ -20,6 +21,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
   const navigate = useNavigate()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [mainIconHover, setMainIconHover] = useState(false)
+  const [navigating, setNavigating] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -43,8 +45,13 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
   }
 
   const handleClick = (item: Space) => {
+    if (navigating) return
+    setNavigating(true)
     dispatch({ type: 'SET_SPACE', payload: item })
-    navigate(`/space/${item.space_id}`)
+    // 延迟一帧确保遮罩渲染后再导航，阻止重复点击
+    requestAnimationFrame(() => {
+      navigate(`/space/${item.space_id}`)
+    })
   }
 
   const accentColors: Record<string, string> = {
@@ -55,14 +62,16 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
   const accent = accentColors[theme]
 
   return (
-    <aside
-      className="fixed left-0 top-0 h-full z-40 flex flex-col border-r transition-all duration-300 ease-out overflow-hidden"
-      style={{
-        width: isOpen ? SIDEBAR_WIDTH : NARROW_WIDTH,
-        backgroundColor: 'var(--space-surface)',
-        borderColor: 'var(--space-border)',
-      }}
-    >
+    <>
+      <LoadingOverlay open={navigating} message="正在进入认知空间..." />
+      <aside
+        className="fixed left-0 top-0 h-full z-40 flex flex-col border-r transition-all duration-300 ease-out overflow-hidden"
+        style={{
+          width: isOpen ? SIDEBAR_WIDTH : NARROW_WIDTH,
+          backgroundColor: 'var(--space-surface)',
+          borderColor: 'var(--space-border)',
+        }}
+      >
       {/* ═══ Top section: left icons + right labels ═══ */}
       <div className="flex shrink-0">
         {/* Left column (56px) — icons */}
@@ -169,6 +178,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
           </div>
         ))}
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

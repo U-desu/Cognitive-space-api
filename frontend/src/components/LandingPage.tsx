@@ -108,18 +108,19 @@ export default function LandingPage() {
   }
 
   const handleReuse = () => {
-    if (!dedupSpace) return
+    if (!dedupSpace || loading) return
     setShowDedup(false)
+    setLoading(true)
     dispatch({ type: 'SET_SPACE', payload: dedupSpace })
-    navigate(`/space/${dedupSpace.space_id}`)
+    requestAnimationFrame(() => {
+      navigate(`/space/${dedupSpace.space_id}`)
+    })
   }
 
   const handleCreateNew = () => {
+    if (loading) return
     setShowDedup(false)
-    // 用户选择创建新的，但目前后端 createSpace 已经返回了去重结果，
-    // 需要重新调用创建并强制跳过去重。当前 API 没有强制跳过参数，
-    // 这里暂时提示用户此功能需要后端支持，或者我们可以直接跳转已有空间。
-    // 为了 MVP，我们直接跳转到已有空间（与 handleReuse 相同）。
+    // 当前 API 没有强制跳过去重参数，直接复用已有空间
     handleReuse()
   }
 
