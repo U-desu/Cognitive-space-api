@@ -5,10 +5,11 @@ Future: replace with real Zhihu API calls + cache.
 """
 
 from fastapi import APIRouter, Query
-from services.shared.models import ExternalUser, ExternalQuestion
+from services.shared.models import ExternalUser, ExternalQuestion, DomainLabel
 from services.aggregator.static_data import ZHIHU_USERS, ZHIHU_QUESTIONS, DOMAIN_LABELS
 
 router = APIRouter(prefix="/aggregator/zhihu", tags=["aggregator-zhihu"])
+domain_router = APIRouter(prefix="/aggregator", tags=["aggregator"])
 
 
 def _match_query_preset(query: str) -> str:
@@ -35,7 +36,7 @@ def get_zhihu_questions(query: str = Query(..., description="Space query")):
     return [ExternalQuestion(**q, domain=preset) for q in questions]
 
 
-@router.get("/domain-labels")
+@domain_router.get("/domain-labels", response_model=list[DomainLabel])
 def get_domain_labels():
     """Get all domain label mappings."""
-    return DOMAIN_LABELS
+    return [DomainLabel(key=k, label=v) for k, v in DOMAIN_LABELS.items()]

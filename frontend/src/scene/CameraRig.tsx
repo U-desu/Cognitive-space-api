@@ -7,9 +7,11 @@ interface CameraRigProps {
   targetPosition: [number, number, number] | null
   isFocus: boolean
   onBackToGlobal?: () => void
+  globalDistance?: number
+  resetCameraSignal?: number
 }
 
-export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: CameraRigProps) {
+export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, globalDistance = 80, resetCameraSignal }: CameraRigProps) {
   const { camera } = useThree()
   const controlsRef = useRef<any>(null)
 
@@ -31,7 +33,7 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: C
     startTarget.current.copy(controlsRef.current.target)
     startAzimuth.current = controlsRef.current.getAzimuthalAngle()
     startPolar.current = controlsRef.current.getPolarAngle()
-  }, [targetPosition, isFocus]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [targetPosition, isFocus, resetCameraSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Execute the fly animation; once complete, hands control back to OrbitControls
   useFrame((_, delta) => {
@@ -47,7 +49,6 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal }: C
     // Preserve the user's current viewing angles (azimuth + polar)
     // Only change the distance (radius) and the target position
     const focusDistance = 30
-    const globalDistance = 80
     const desiredDistance = targetPosition ? focusDistance : globalDistance
 
     const azimuth = startAzimuth.current

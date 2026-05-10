@@ -26,6 +26,8 @@ interface Props {
   viewMode: 'global' | 'focus'
   onBackToGlobal: () => void
   onExpandAgent?: (agentId: string) => void
+  resetCameraSignal?: number
+  onResetCamera?: () => void
 }
 
 export default function UniverseScene({
@@ -34,6 +36,8 @@ export default function UniverseScene({
   viewMode,
   onBackToGlobal,
   onExpandAgent,
+  resetCameraSignal,
+  onResetCamera,
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
@@ -154,7 +158,11 @@ export default function UniverseScene({
           position={[0, 0, 0]}
           onClick={(e) => {
             e.stopPropagation()
-            onBackToGlobal()
+            if (isFocus) {
+              onBackToGlobal()
+            } else {
+              onResetCamera?.()
+            }
           }}
           onPointerOver={(e) => {
             e.stopPropagation()
@@ -281,10 +289,25 @@ export default function UniverseScene({
             )
           })}
 
+        {/* Background click catcher — resets camera distance in global mode */}
+        {!isFocus && onResetCamera && (
+          <mesh
+            onClick={(e) => {
+              e.stopPropagation()
+              onResetCamera()
+            }}
+          >
+            <sphereGeometry args={[500, 32, 32]} />
+            <meshBasicMaterial color={theme.color} transparent opacity={0} side={THREE.BackSide} />
+          </mesh>
+        )}
+
         <CameraRig
           targetPosition={targetPosition}
           isFocus={isFocus}
           onBackToGlobal={onBackToGlobal}
+          globalDistance={cameraDistance}
+          resetCameraSignal={resetCameraSignal}
         />
       </Canvas>
 

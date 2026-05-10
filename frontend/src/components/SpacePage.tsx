@@ -15,6 +15,7 @@ export default function SpacePage() {
   const [viewMode, setViewMode] = useState<'global' | 'focus'>('global')
   const [agentClickCount, setAgentClickCount] = useState(0)
   const [showShare, setShowShare] = useState(false)
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
 
   useEffect(() => {
     if (!spaceId) return
@@ -66,6 +67,10 @@ export default function SpacePage() {
     setViewMode('global')
   }
 
+  const handleResetCamera = () => {
+    setResetCameraSignal((c) => c + 1)
+  }
+
   if (state.loading && !state.space) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -115,6 +120,8 @@ export default function SpacePage() {
           viewMode={viewMode}
           onBackToGlobal={handleBackToGlobal}
           onExpandAgent={handleExpandAgent}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
         />
 
         {selectedAgent && isFocus && (

@@ -43,7 +43,7 @@ class AgentDB(Base):
     authority = Column(Float)
     novelty = Column(Float)
     embedding = Column(PG_ARRAY(Float))
-    parent_id = Column(String(20), nullable=True)
+    parent_id = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -63,10 +63,10 @@ class EdgeDB(Base):
         {"schema": SCHEMA},
     )
 
-    edge_id = Column(String(50), primary_key=True)
+    edge_id = Column(String(150), primary_key=True)
     space_id = Column(String(20), ForeignKey(f"{SCHEMA}.spaces.space_id", ondelete="CASCADE"), primary_key=True)
-    source_agent_id = Column(String(50), nullable=False)
-    target_agent_id = Column(String(50), nullable=False)
+    source_agent_id = Column(String(80), nullable=False)
+    target_agent_id = Column(String(80), nullable=False)
     conflict_score = Column(Float, nullable=False)
     conflict_type = Column(String(20))
     shared_ground = Column(PG_ARRAY(Text))
@@ -88,7 +88,7 @@ class DebateDB(Base):
 
     debate_id = Column(String(20), primary_key=True)
     space_id = Column(String(20), ForeignKey(f"{SCHEMA}.spaces.space_id", ondelete="CASCADE"), nullable=False)
-    edge_id = Column(String(50), nullable=False)
+    edge_id = Column(String(150), nullable=False)
     participants = Column(PG_ARRAY(Text), nullable=False)
     transcript = Column(JSONB, nullable=False)
     synthesis = Column(JSONB, nullable=False)
@@ -114,7 +114,7 @@ class TrajectoryEventDB(Base):
 
     event_id = Column(Integer, primary_key=True, autoincrement=True)
     trajectory_id = Column(String(20), ForeignKey(f"{SCHEMA}.trajectories.trajectory_id", ondelete="CASCADE"), nullable=False)
-    node = Column(String(50), nullable=False)
+    node = Column(String(80), nullable=False)
     action = Column(String(50), nullable=False)
     dwell_time = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

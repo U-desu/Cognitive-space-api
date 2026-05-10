@@ -23,6 +23,7 @@ app = FastAPI(
 )
 
 app.include_router(zhihu.router)
+app.include_router(zhihu.domain_router)
 app.include_router(presets.router)
 
 
