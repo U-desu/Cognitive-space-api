@@ -46,9 +46,17 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, glo
       ? new THREE.Vector3(...targetPosition)
       : new THREE.Vector3(0, 0, 0)
 
+    // In focus mode, shift target toward screen-right so the node lands
+    // in the center of the remaining space (screen width minus sidebar).
+    if (targetPosition && isFocus) {
+      const viewDir = new THREE.Vector3().subVectors(camera.position, targetVec).normalize()
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), viewDir).normalize()
+      targetVec.add(right.multiplyScalar(10))
+    }
+
     // Preserve the user's current viewing angles (azimuth + polar)
     // Only change the distance (radius) and the target position
-    const focusDistance = 24
+    const focusDistance = 38
     const desiredDistance = targetPosition ? focusDistance : globalDistance
 
     const azimuth = startAzimuth.current

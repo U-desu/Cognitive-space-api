@@ -327,8 +327,7 @@ export default function UniverseScene({
           const lineColor = isDark ? '#e2e8f0' : '#1e293b'
 
           const isLineHighlighted =
-            !selectedAgent &&
-            (highlightedId === agent.agent_id || highlightedId === agent.parent_id)
+            highlightedId === agent.agent_id || highlightedId === agent.parent_id
 
           // Offset line endpoints to circle edges
           const from = offsetTowards(rawFrom, rawTo, AGENT_CIRCLE_RADIUS)
@@ -362,11 +361,9 @@ export default function UniverseScene({
             if (!rawPos) return null
             const rootColor = STANCE_COLORS[agent.stance] || '#94a3b8'
             const isSel = selectedAgent === agent.agent_id
-            const opacity = isSel ? 0.2 : 0.08
 
             const isRootLineHighlighted =
-              !selectedAgent &&
-              (highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID)
+              highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID
 
             // Offset line endpoints to circle edges
             const from = offsetTowards([0, 0, 0], rawPos, CENTER_CIRCLE_RADIUS)
@@ -378,7 +375,7 @@ export default function UniverseScene({
                   from={from}
                   to={to}
                   color={rootColor}
-                  opacity={opacity}
+                  opacity={isSel ? 0.7 : 0.4}
                   isNetworkHighlighted={isRootLineHighlighted}
                 />
                 <ParticleTrail
