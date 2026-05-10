@@ -17,6 +17,7 @@ import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
 import type { AgentExpandPayload } from '../api-types'
 import { useDebateStream } from '../hooks/useDebateStream'
+import { useTheme } from '../theme/ThemeContext'
 import StreamTurnCard from './StreamTurnCard'
 import type { Edge, Agent, ExternalUser, ExternalQuestion } from '../api-types'
 
@@ -34,16 +35,13 @@ const STANCE_LABEL: Record<string, string> = {
   neutral: '中立派',
 }
 
-const STANCE_BG: Record<string, string> = {
-  pro: '#dcfce7',
-  con: '#ffe4e6',
-  neutral: '#fef3c7',
-}
-
-const STANCE_TEXT: Record<string, string> = {
-  pro: '#166534',
-  con: '#9f1239',
-  neutral: '#92400e',
+function getStanceColors(theme: string) {
+  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'
+  return {
+    pro: { bg: accent + '18', text: accent },
+    con: { bg: '#ff444418', text: '#ff4444' },
+    neutral: { bg: '#f59e0b18', text: '#f59e0b' },
+  }
 }
 
 interface Props {
@@ -53,6 +51,8 @@ interface Props {
 
 export default function AgentPanel({ agentId, onClose }: Props) {
   const { state, dispatch } = useSpaceState()
+  const { theme } = useTheme()
+  const stanceColors = getStanceColors(theme)
   const [page, setPage] = useState<PanelPage>('profile')
   const [expandLoading, setExpandLoading] = useState(false)
   const [expandHint, setExpandHint] = useState('')
@@ -191,6 +191,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             expandLoading={expandLoading}
             onExpand={handleExpand}
             isUserAgent={agentId === USER_AGENT_ID}
+            stanceColors={stanceColors}
           />
         </div>
         {/* Debate */}
@@ -201,6 +202,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             selectedEdge={selectedEdgeForDebate}
             onBack={() => setPage('profile')}
             onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
+            stanceColors={stanceColors}
           />
         </div>
         {/* Cluster */}
@@ -213,6 +215,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             zhihuQuestions={zhihuQuestions}
             loading={externalDataLoading}
             onBack={() => setPage('debate')}
+            stanceColors={stanceColors}
           />
         </div>
       </div>
@@ -232,6 +235,7 @@ function ProfileContent({
   expandLoading,
   onExpand,
   isUserAgent,
+  stanceColors,
 }: {
   agent: Agent
   relatedEdges: Edge[]
@@ -243,6 +247,7 @@ function ProfileContent({
   expandLoading: boolean
   onExpand: () => void
   isUserAgent: boolean
+  stanceColors: ReturnType<typeof getStanceColors>
 }) {
   return (
     <>
@@ -264,7 +269,7 @@ function ProfileContent({
             </div>
             <div>
               <h2 className="text-lg font-extrabold text-gray-800">{agent.name}</h2>
-              <span className="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full mt-1" style={{ backgroundColor: STANCE_BG[agent.stance] || '#f3f4f6', color: STANCE_TEXT[agent.stance] || '#374151' }}>
+              <span className="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full mt-1" style={{ backgroundColor: stanceColors[agent.stance as keyof typeof stanceColors]?.bg || '#f3f4f6', color: stanceColors[agent.stance as keyof typeof stanceColors]?.text || '#374151' }}>
                 {STANCE_EMOJI[agent.stance]} {STANCE_LABEL[agent.stance]}
               </span>
             </div>
@@ -362,12 +367,14 @@ function DebateContent({
   selectedEdge,
   onBack,
   onCluster,
+  stanceColors,
 }: {
   streamState: ReturnType<typeof useDebateStream>['state']
   agents: Agent[]
   selectedEdge: Edge | null
   onBack: () => void
   onCluster: (agentId: string) => void
+  stanceColors: ReturnType<typeof getStanceColors>
 }) {
   const [typedTurns, setTypedTurns] = useState<Set<number>>(new Set())
   const agentMap = new Map(agents.map((a) => [a.agent_id, a]))
@@ -418,7 +425,7 @@ function DebateContent({
             <p className="text-[10px] text-gray-400 font-bold mb-2">参与辩论的角色</p>
             <div className="flex items-center gap-3">
               {participants.map((p) => {
-                const color = p.stance === 'pro' ? '#4ade80' : p.stance === 'con' ? '#fb7185' : '#fbbf24'
+                const color = stanceColors[p.stance as keyof typeof stanceColors]?.text || '#94a3b8'
                 return (
                   <button key={p.agent_id} onClick={() => onCluster(p.agent_id)} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: color + '30' }}>
@@ -520,6 +527,7 @@ function ClusterContent({
   zhihuQuestions,
   loading,
   onBack,
+  stanceColors,
 }: {
   agentDomain?: string
   agentStance: string
@@ -528,9 +536,10 @@ function ClusterContent({
   zhihuQuestions: ExternalQuestion[]
   loading: boolean
   onBack: () => void
+  stanceColors: ReturnType<typeof getStanceColors>
 }) {
   const domainLabel = domainLabels[agentDomain ?? ''] ?? (agentDomain || '未知领域')
-  const color = agentStance === 'pro' ? '#4ade80' : agentStance === 'con' ? '#fb7185' : '#fbbf24'
+  const color = stanceColors[agentStance as keyof typeof stanceColors]?.text || '#94a3b8'
 
   return (
     <>

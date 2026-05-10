@@ -9,9 +9,8 @@ import CameraRig from './CameraRig'
 import CenterNode from './CenterNode'
 import AgentNodes from './AgentNodes'
 import ConnectionLines from './ConnectionLines'
-import BackgroundThemeSwitcher, { getSavedTheme } from '../components/BackgroundThemeSwitcher'
+import { useTheme } from '../theme/ThemeContext'
 import type { Agent } from '../api-types'
-import type { Theme } from '../components/BackgroundThemeSwitcher'
 
 interface Props {
   onAgentClick: (agentId: string) => void
@@ -35,7 +34,7 @@ export default function UniverseScene({
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const [theme, setTheme] = useState<Theme>(getSavedTheme)
+  const { theme: appTheme } = useTheme()
 
   const space = state.space
   const agents = space?.agents ?? []
@@ -91,18 +90,16 @@ export default function UniverseScene({
       : space.query
     : '问题'
 
-  const isDark = theme.style === 'dark'
+  const isDark = true  /* all new themes are dark */
 
   return (
-    <div className="w-full h-full relative" style={{ background: theme.color }}>
+    <div className="w-full h-full relative bg-space-bg">
       {/* Back button (focus mode only) */}
       {isFocus && (
         <button
           onClick={onBackToGlobal}
           className={`absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full backdrop-blur border transition-all hover:scale-105 ${
-            isDark
-              ? 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-              : 'bg-black/10 border-black/20 text-gray-800 hover:bg-black/20'
+            'bg-white/10 border-white/20 text-white hover:bg-white/20'
           }`}
           title="返回全局视图"
         >
@@ -110,23 +107,19 @@ export default function UniverseScene({
         </button>
       )}
 
-      <BackgroundThemeSwitcher currentTheme={theme} onThemeChange={setTheme} />
+
 
       {/* Hints */}
-      <div className={`absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full backdrop-blur border text-[10px] font-bold pointer-events-none ${
-        isDark
-          ? 'bg-white/10 border-white/10 text-gray-300'
-          : 'bg-black/10 border-black/10 text-gray-600'
-      }`}>
+      <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-full backdrop-blur border text-[10px] font-bold pointer-events-none bg-white/10 border-white/10 text-gray-300">
         拖拽旋转 · 滚轮缩放 · 双击空白返回
       </div>
 
       <Canvas
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
-        onCreated={({ gl }) => gl.setClearColor(theme.color)}
+        onCreated={({ gl }) => gl.setClearColor(appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : '#060f0a')}
       >
-        <SceneBackground color={theme.color} />
+        <SceneBackground theme={appTheme} />
 
         <ambientLight intensity={0.4} />
         <pointLight position={[50, 50, 50]} intensity={1.2} color="#ffffff" />
@@ -140,6 +133,7 @@ export default function UniverseScene({
         <CenterNode
           label={centerLabel}
           isDark={isDark}
+          theme={appTheme}
           onClick={(e) => {
             e.stopPropagation()
             if (isFocus) onBackToGlobal()
@@ -191,7 +185,7 @@ export default function UniverseScene({
             }}
           >
             <sphereGeometry args={[500, 32, 32]} />
-            <meshBasicMaterial color={theme.color} transparent opacity={0} side={THREE.BackSide} />
+            <meshBasicMaterial color={appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : '#060f0a'} transparent opacity={0} side={THREE.BackSide} />
           </mesh>
         )}
 
@@ -205,14 +199,15 @@ export default function UniverseScene({
       </Canvas>
 
       {/* Tooltip */}
-      {hoveredAgent && <AgentTooltip agent={agents.find((a) => a.agent_id === hoveredAgent)!} />}
+      {hoveredAgent && <AgentTooltip agent={agents.find((a) => a.agent_id === hoveredAgent)!} theme={appTheme} />}
     </div>
   )
 }
 
 /** Simple tooltip shown when hovering an agent */
-function AgentTooltip({ agent }: { agent: Agent }) {
-  const color = agent.stance === 'pro' ? '#4ade80' : agent.stance === 'con' ? '#fb7185' : '#fbbf24'
+function AgentTooltip({ agent, theme }: { agent: Agent; theme: string }) {
+  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'
+  const color = agent.stance === 'pro' ? accent : agent.stance === 'con' ? '#ff4444' : '#f59e0b'
   const isChild = !!agent.parent_id
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
@@ -231,8 +226,9 @@ function AgentTooltip({ agent }: { agent: Agent }) {
 }
 
 /** Updates the renderer clear colour when the theme changes at runtime */
-function SceneBackground({ color }: { color: string }) {
+function SceneBackground({ theme }: { theme: string }) {
   const { gl } = useThree()
+  const color = theme === 'cyberpunk' ? '#050508' : theme === 'deepspace' ? '#0a0f1e' : '#060f0a'
   useEffect(() => {
     gl.setClearColor(color)
   }, [gl, color])

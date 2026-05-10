@@ -7,13 +7,14 @@ import * as THREE from 'three'
 interface CenterNodeProps {
   label: string
   isDark: boolean
+  theme?: string
   onClick: (e: any) => void
   onPointerOver: (e: any) => void
   onPointerOut: () => void
 }
 
 /** Sun-like center sphere with subtle additive glow */
-export default function CenterNode({ label, isDark, onClick, onPointerOver, onPointerOut }: CenterNodeProps) {
+export default function CenterNode({ label, isDark, theme = 'cyberpunk', onClick, onPointerOver, onPointerOut }: CenterNodeProps) {
   const labelRef = useRef<THREE.Group>(null)
 
   useFrame(({ camera }) => {
@@ -33,8 +34,8 @@ export default function CenterNode({ label, isDark, onClick, onPointerOver, onPo
       <mesh>
         <sphereGeometry args={[3.0, 64, 64]} />
         <meshStandardMaterial
-          color="#FBBF24"
-          emissive="#FBBF24"
+          color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'}
+          emissive={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'}
           emissiveIntensity={1.5}
           roughness={0.8}
           metalness={0.1}
@@ -45,7 +46,7 @@ export default function CenterNode({ label, isDark, onClick, onPointerOver, onPo
       <mesh>
         <sphereGeometry args={[4.0, 32, 32]} />
         <meshBasicMaterial
-          color="#FCD34D"
+          color={theme === 'cyberpunk' ? '#b026ff' : theme === 'deepspace' ? '#8b5cf6' : '#00d4aa'}
           transparent
           opacity={0.1}
           depthWrite={false}
@@ -54,7 +55,7 @@ export default function CenterNode({ label, isDark, onClick, onPointerOver, onPo
         />
       </mesh>
 
-      <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFD700" distance={60} decay={1.5} />
+      <pointLight position={[0, 0, 0]} intensity={1.5} color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'} distance={60} decay={1.5} />
 
       {/* Billboard label below the sun */}
       <group ref={labelRef} position={[0, -5.0, 0]}>
@@ -66,7 +67,7 @@ export default function CenterNode({ label, isDark, onClick, onPointerOver, onPo
           outlineWidth={0.05}
           outlineColor={isDark ? '#000000' : '#ffffff'}
         >
-          🌟 {label}
+          {theme === 'cyberpunk' ? '⚡' : theme === 'deepspace' ? '🌌' : '🧠'} {label}
         </Text>
       </group>
     </group>

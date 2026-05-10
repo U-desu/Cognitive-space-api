@@ -6,6 +6,7 @@ import UniverseScene from '../scene/UniverseScene'
 import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
+import ThemeSwitcher from '../theme/ThemeSwitcher'
 import { Loader2, Share2 } from 'lucide-react'
 
 export default function SpacePage() {
@@ -93,15 +94,16 @@ export default function SpacePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header — no back button here anymore */}
+      {/* Header */}
       <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-xs font-bold text-indigo-400 shrink-0">认知空间</span>
+          <span className="text-xs font-bold text-indigo-400 shrink-0">🧠 认知空间</span>
           <span className="text-gray-300">·</span>
           <h2 className="text-sm font-bold text-gray-700 truncate">
             {state.space.query}
           </h2>
         </div>
+        <ThemeSwitcher />
         <button
           onClick={() => setShowShare(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"

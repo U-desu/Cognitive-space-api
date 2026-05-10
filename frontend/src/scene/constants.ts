@@ -9,8 +9,10 @@ export const AGENT_CIRCLE_RADIUS = 2.6
 /** Radius of the sun / center sphere */
 export const CENTER_CIRCLE_RADIUS = 3.0
 
-/** Avatar image plane dimensions [width, height] */
-export const AVATAR_PLANE_WIDTH = 4.2
+/** Avatar image plane dimensions [width, height]
+ *  Must match the image aspect ratio (300/240 = 1.25)
+ */
+export const AVATAR_PLANE_WIDTH = 4.0
 export const AVATAR_PLANE_HEIGHT = 3.2
 
 /** Stance-colored border ring [innerRadius, outerRadius] */
