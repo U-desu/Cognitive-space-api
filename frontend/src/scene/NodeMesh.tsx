@@ -2,19 +2,9 @@ import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
+import { STANCE_COLORS } from '../constants'
+import NodeLabel from './NodeLabel'
 import type { Agent } from '../api-types'
-
-const STANCE_COLORS: Record<string, string> = {
-  pro: '#4ade80',
-  con: '#fb7185',
-  neutral: '#fbbf24',
-}
-
-const STANCE_EMOJI: Record<string, string> = {
-  pro: '✅',
-  con: '❌',
-  neutral: '⚖️',
-}
 
 interface NodeMeshProps {
   agent: Agent
@@ -227,34 +217,7 @@ export default function NodeMesh({
         </group>
       )}
 
-      {/* Label — custom billboard: always faces camera */}
-      <LabelGroup position={[0, -3.2, 0]}>
-        <Text
-          fontSize={1.15}
-          color={darkBg ? '#ffffff' : '#1a202c'}
-          anchorX="center"
-          anchorY="top"
-          outlineWidth={0.03}
-          outlineColor={darkBg ? '#000000' : '#ffffff'}
-        >
-          {STANCE_EMOJI[agent.stance]} {agent.name}
-        </Text>
-      </LabelGroup>
-    </group>
-  )
-}
-
-/** Custom billboard component: uses lookAt(camera.position) every frame */
-function LabelGroup({ children, position }: { children: React.ReactNode; position: [number, number, number] }) {
-  const groupRef = useRef<THREE.Group>(null)
-  useFrame(({ camera }) => {
-    if (groupRef.current) {
-      groupRef.current.quaternion.copy(camera.quaternion)
-    }
-  })
-  return (
-    <group ref={groupRef} position={position}>
-      {children}
+      <NodeLabel agent={agent} darkBg={darkBg} />
     </group>
   )
 }

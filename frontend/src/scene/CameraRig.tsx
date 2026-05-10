@@ -35,7 +35,24 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, glo
     startPolar.current = controlsRef.current.getPolarAngle()
   }, [targetPosition, isFocus, resetCameraSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Execute the fly animation; once complete, hands control back to OrbitControls
+  /**
+   * Fly animation — runs every frame while isAnimating is true.
+   *
+   * Algorithm:
+   * 1. Capture startPos / startTarget / startAzimuth / startPolar when target
+   *    changes (useEffect above).
+   * 2. Advance animProgress each frame (~0.4 s total at delta*2.5).
+   * 3. Keep the user's original azimuth & polar angles, only change distance.
+   * 4. Convert spherical (azimuth, polar, distance) → Cartesian offset.
+   * 5. desiredCamPos = targetVec + offset  → camera orbits the target.
+   * 6. easeOutCubic interpolation for smooth deceleration at the end.
+   * 7. Stop animating at progress >= 1.0, hand back to OrbitControls.
+   *
+   * Focus-mode sidebar offset:
+   *    Shift target toward camera-right by 10 world units so the selected
+   *    node sits in the centre of the remaining viewport (excluding the
+   *    right-hand AgentPanel).
+   */
   useFrame((_, delta) => {
     if (!isAnimating.current || !controlsRef.current) return
 

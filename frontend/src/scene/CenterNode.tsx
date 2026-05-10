@@ -1,0 +1,74 @@
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Text } from '@react-three/drei'
+import * as THREE from 'three'
+
+
+interface CenterNodeProps {
+  label: string
+  isDark: boolean
+  onClick: (e: any) => void
+  onPointerOver: (e: any) => void
+  onPointerOut: () => void
+}
+
+/** Sun-like center sphere with subtle additive glow */
+export default function CenterNode({ label, isDark, onClick, onPointerOver, onPointerOut }: CenterNodeProps) {
+  const labelRef = useRef<THREE.Group>(null)
+
+  useFrame(({ camera }) => {
+    if (labelRef.current) {
+      labelRef.current.quaternion.copy(camera.quaternion)
+    }
+  })
+
+  return (
+    <group
+      position={[0, 0, 0]}
+      onClick={onClick}
+      onPointerOver={onPointerOver}
+      onPointerOut={onPointerOut}
+    >
+      {/* Core sphere */}
+      <mesh>
+        <sphereGeometry args={[3.0, 64, 64]} />
+        <meshStandardMaterial
+          color="#FBBF24"
+          emissive="#FBBF24"
+          emissiveIntensity={1.5}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Subtle additive glow shell */}
+      <mesh>
+        <sphereGeometry args={[4.0, 32, 32]} />
+        <meshBasicMaterial
+          color="#FCD34D"
+          transparent
+          opacity={0.1}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFD700" distance={60} decay={1.5} />
+
+      {/* Billboard label below the sun */}
+      <group ref={labelRef} position={[0, -5.0, 0]}>
+        <Text
+          fontSize={2.5}
+          color={isDark ? '#ffffff' : '#1a202c'}
+          anchorX="center"
+          anchorY="top"
+          outlineWidth={0.05}
+          outlineColor={isDark ? '#000000' : '#ffffff'}
+        >
+          🌟 {label}
+        </Text>
+      </group>
+    </group>
+  )
+}

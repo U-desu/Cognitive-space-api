@@ -1,40 +1,17 @@
-import { useState, Suspense, useRef, useMemo, useEffect } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Stars, Text } from '@react-three/drei'
+import { useState, Suspense, useMemo, useEffect } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
+import { Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { useSpaceState } from '../store/SpaceContext'
 import { useLayout3D, useChildrenMap } from './useLayout3D'
-import NodeMesh from './NodeMesh'
-import ConnectionLine from './ConnectionLine'
-import ParticleTrail from './ParticleTrail'
+import { AVATAR_IMAGES, USER_AGENT_ID } from '../constants'
 import CameraRig from './CameraRig'
+import CenterNode from './CenterNode'
+import AgentNodes from './AgentNodes'
+import ConnectionLines from './ConnectionLines'
 import BackgroundThemeSwitcher, { getSavedTheme } from '../components/BackgroundThemeSwitcher'
 import type { Agent } from '../api-types'
 import type { Theme } from '../components/BackgroundThemeSwitcher'
-
-const STANCE_COLORS: Record<string, string> = {
-  pro: '#4ade80',
-  con: '#fb7185',
-  neutral: '#fbbf24',
-}
-
-const USER_AGENT_ID = '__user__'
-const AGENT_CIRCLE_RADIUS = 2.6
-const CENTER_CIRCLE_RADIUS = 3.0
-
-function offsetTowards(
-  point: [number, number, number],
-  target: [number, number, number],
-  distance: number
-): [number, number, number] {
-  const dx = target[0] - point[0]
-  const dy = target[1] - point[1]
-  const dz = target[2] - point[2]
-  const len = Math.sqrt(dx * dx + dy * dy + dz * dz)
-  if (len === 0) return point
-  const t = distance / len
-  return [point[0] + dx * t, point[1] + dy * t, point[2] + dz * t]
-}
 
 interface Props {
   onAgentClick: (agentId: string) => void
@@ -67,47 +44,30 @@ export default function UniverseScene({
   const positions = useLayout3D(agents)
   const childrenMap = useChildrenMap(agents)
 
-  // Compute which nodes should glow when an agent is SELECTED.
-  // Hover no longer highlights nodes — only edges.
+  /** Which nodes glow when an agent is selected (itself + parent + children) */
   const highlightSet = useMemo(() => {
     const set = new Set<string>()
-
     if (!selectedAgent || selectedAgent === USER_AGENT_ID) return set
 
-    // Highlight the selected agent itself
     set.add(selectedAgent)
-
-    // Highlight its parent
     const selected = agents.find((a) => a.agent_id === selectedAgent)
-    if (selected?.parent_id) {
-      set.add(selected.parent_id)
-    }
-
-    // Highlight all its children
+    if (selected?.parent_id) set.add(selected.parent_id)
     const children = childrenMap.get(selectedAgent) || []
-    for (const child of children) {
-      set.add(child.agent_id)
-    }
-
+    for (const child of children) set.add(child.agent_id)
     return set
   }, [selectedAgent, agents, childrenMap])
 
-  // Dynamic camera distance based on node bounding sphere
+  /** Camera distance ensures all nodes are visible: maxDist * 1.5, min 28 */
   const cameraDistance = useMemo(() => {
     let maxDist = 0
     for (const agent of agents) {
       const pos = positions.get(agent.agent_id)
-      if (pos) {
-        const dist = Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-        maxDist = Math.max(maxDist, dist)
-      }
+      if (pos) maxDist = Math.max(maxDist, Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2))
     }
-    // Ensure all nodes are visible: distance = maxDist * 1.5
-    // Minimum 28 to avoid being too close when few nodes
     return Math.max(28, maxDist * 1.5)
   }, [agents, positions])
 
-  // Target position for camera focus
+  /** Camera focus target: selected agent position, or origin for center node */
   const targetPosition: [number, number, number] | null =
     selectedAgent && selectedAgent !== USER_AGENT_ID
       ? positions.get(selectedAgent) || null
@@ -115,51 +75,7 @@ export default function UniverseScene({
       ? [0, 0, 0]
       : null
 
-  // Center label
-  // Avatar images for agents
-  const AVATAR_IMAGES = useMemo(
-    () => [
-      '/avatars/极客赌徒.png',
-      '/avatars/稳健派VP.png',
-      '/avatars/焦虑中干.png',
-      '/avatars/海归博士.png',
-      '/avatars/财务自由者.png',
-      '/avatars/外包老兵.png',
-      '/avatars/转型顾问.png',
-      '/avatars/赛道投资人.png',
-      '/avatars/体制内观察员.png',
-      '/avatars/佛系产品经理.png',
-      '/avatars/草根逆袭者.png',
-      '/avatars/大厂HRD.png',
-      '/avatars/全栈工程师.png',
-      '/avatars/护城河构建者.png',
-      '/avatars/趋势洞察者.png',
-      '/avatars/AI布道者.png',
-      '/avatars/技术写作者.png',
-      '/avatars/地缘政治分析师.png',
-      '/avatars/增长黑客.png',
-      '/avatars/商务拓展.png',
-      '/avatars/基础科学研究者.png',
-      '/avatars/全球化运营.png',
-      '/avatars/安全极客.png',
-      '/avatars/运维工程师.png',
-      '/avatars/技术天花板.png',
-      '/avatars/管理教父.png',
-      '/avatars/斜杠青年.png',
-      '/avatars/焦虑螺丝钉.png',
-      '/avatars/职场老油条.png',
-      '/avatars/创业预备役.png',
-      '/avatars/女性CTO.png',
-      '/avatars/海归高管.png',
-      '/avatars/技术布道者.png',
-      '/avatars/健康至上者.png',
-      '/avatars/天才少年.png',
-      '/avatars/跨界艺术家.png',
-    ],
-    []
-  )
-
-  // Deterministic avatar assignment per agent_id
+  /** Deterministic avatar assignment per agent_id */
   const agentAvatarMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const agent of agents) {
@@ -167,7 +83,7 @@ export default function UniverseScene({
       map.set(agent.agent_id, AVATAR_IMAGES[hash % AVATAR_IMAGES.length])
     }
     return map
-  }, [agents, AVATAR_IMAGES])
+  }, [agents])
 
   const centerLabel = space?.query
     ? space.query.length > 8
@@ -208,9 +124,7 @@ export default function UniverseScene({
       <Canvas
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(theme.color)
-        }}
+        onCreated={({ gl }) => gl.setClearColor(theme.color)}
       >
         <SceneBackground color={theme.color} />
 
@@ -222,16 +136,14 @@ export default function UniverseScene({
           <Stars radius={150} depth={80} count={2000} factor={3} saturation={0} fade speed={0.5} />
         </Suspense>
 
-        {/* Sun center node — click to reset focus */}
-        <group
-          position={[0, 0, 0]}
+        {/* Center sun node */}
+        <CenterNode
+          label={centerLabel}
+          isDark={isDark}
           onClick={(e) => {
             e.stopPropagation()
-            if (isFocus) {
-              onBackToGlobal()
-            } else {
-              onResetCamera?.()
-            }
+            if (isFocus) onBackToGlobal()
+            else onResetCamera?.()
           }}
           onPointerOver={(e) => {
             e.stopPropagation()
@@ -242,152 +154,35 @@ export default function UniverseScene({
             setHighlightedId(null)
             document.body.style.cursor = 'auto'
           }}
-        >
-          {/* Sun center — warm orange-yellow sphere with subtle glow */}
-          <mesh>
-            <sphereGeometry args={[3.0, 64, 64]} />
-            <meshStandardMaterial
-              color="#FBBF24"
-              emissive="#FBBF24"
-              emissiveIntensity={1.5}
-              roughness={0.8}
-              metalness={0.1}
-            />
-          </mesh>
-          <mesh>
-            <sphereGeometry args={[4.0, 32, 32]} />
-            <meshBasicMaterial
-              color="#FCD34D"
-              transparent
-              opacity={0.1}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-          <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFD700" distance={60} decay={1.5} />
-          <CenterLabel position={[0, -5.0, 0]}>
-            <Text
-              fontSize={2.5}
-              color={isDark ? '#ffffff' : '#1a202c'}
-              anchorX="center"
-              anchorY="top"
-              outlineWidth={0.05}
-              outlineColor={isDark ? '#000000' : '#ffffff'}
-            >
-              🌟 {centerLabel}
-            </Text>
-          </CenterLabel>
-        </group>
+        />
 
         {/* Agent nodes */}
-        {agents.map((agent) => {
-          const pos = positions.get(agent.agent_id)
-          if (!pos) return null
-          const isSel = selectedAgent === agent.agent_id
-          const isHov = hoveredAgent === agent.agent_id
-          const childList = childrenMap.get(agent.agent_id) || []
+        <AgentNodes
+          agents={agents}
+          positions={positions}
+          childrenMap={childrenMap}
+          selectedAgent={selectedAgent}
+          hoveredAgent={hoveredAgent}
+          highlightSet={highlightSet}
+          agentAvatarMap={agentAvatarMap}
+          darkBg={isDark}
+          onAgentClick={onAgentClick}
+          onExpandAgent={onExpandAgent}
+          setHoveredAgent={setHoveredAgent}
+          setHighlightedId={setHighlightedId}
+        />
 
-          return (
-            <NodeMesh
-              key={agent.agent_id}
-              agent={agent}
-              position={pos}
-              isSelected={isSel}
-              isHovered={isHov}
-              hasChildren={childList.length > 0}
-              childCount={childList.length}
-              darkBg={isDark}
-              isNetworkHighlighted={highlightSet.has(agent.agent_id)}
-              onClick={() => onAgentClick(agent.agent_id)}
-              onPointerOver={() => {
-                setHoveredAgent(agent.agent_id)
-                setHighlightedId(agent.agent_id)
-              }}
-              onPointerOut={() => {
-                setHoveredAgent(null)
-                setHighlightedId(null)
-              }}
-              onExpand={onExpandAgent ? () => onExpandAgent(agent.agent_id) : undefined}
-              avatarUrl={agentAvatarMap.get(agent.agent_id)}
-            />
-          )
-        })}
+        {/* Parent-child & root-center lines */}
+        <ConnectionLines
+          agents={agents}
+          positions={positions}
+          selectedAgent={selectedAgent}
+          hoveredAgent={hoveredAgent}
+          highlightedId={highlightedId}
+          isDark={isDark}
+        />
 
-        {/* Parent -> child lines — dashed, theme-aware color for contrast */}
-        {agents.map((agent) => {
-          if (!agent.parent_id) return null
-          const rawFrom = positions.get(agent.parent_id)
-          const rawTo = positions.get(agent.agent_id)
-          if (!rawFrom || !rawTo) return null
-          const isSel = selectedAgent === agent.agent_id
-          const isHov = hoveredAgent === agent.agent_id
-          const opacity = isSel ? 0.9 : isHov ? 0.75 : 0.6
-          // High contrast against current background
-          const lineColor = isDark ? '#e2e8f0' : '#1e293b'
-
-          const isLineHighlighted =
-            highlightedId === agent.agent_id || highlightedId === agent.parent_id
-
-          // Offset line endpoints to circle edges
-          const from = offsetTowards(rawFrom, rawTo, AGENT_CIRCLE_RADIUS)
-          const to = offsetTowards(rawTo, rawFrom, AGENT_CIRCLE_RADIUS)
-
-          return (
-            <group key={`line-group-${agent.agent_id}`}>
-              <ConnectionLine
-                from={from}
-                to={to}
-                color={lineColor}
-                opacity={opacity}
-                dashed
-                dashScale={2.5}
-                isNetworkHighlighted={isLineHighlighted}
-              />
-              <ParticleTrail
-                from={from}
-                to={to}
-                active={isLineHighlighted}
-              />
-            </group>
-          )
-        })}
-
-        {/* Root -> center lines — subtle stance-colored solid lines */}
-        {agents
-          .filter((a) => !a.parent_id)
-          .map((agent) => {
-            const rawPos = positions.get(agent.agent_id)
-            if (!rawPos) return null
-            const rootColor = STANCE_COLORS[agent.stance] || '#94a3b8'
-            const isSel = selectedAgent === agent.agent_id
-
-            const isRootLineHighlighted =
-              highlightedId === agent.agent_id || highlightedId === USER_AGENT_ID
-
-            // Offset line endpoints to circle edges
-            const from = offsetTowards([0, 0, 0], rawPos, CENTER_CIRCLE_RADIUS)
-            const to = offsetTowards(rawPos, [0, 0, 0], AGENT_CIRCLE_RADIUS)
-
-            return (
-              <group key={`root-line-group-${agent.agent_id}`}>
-                <ConnectionLine
-                  from={from}
-                  to={to}
-                  color={rootColor}
-                  opacity={isSel ? 0.7 : 0.4}
-                  isNetworkHighlighted={isRootLineHighlighted}
-                />
-                <ParticleTrail
-                  from={from}
-                  to={to}
-                  active={isRootLineHighlighted}
-                />
-              </group>
-            )
-          })}
-
-        {/* Background click catcher — resets camera distance in global mode */}
+        {/* Background click catcher — resets camera in global mode */}
         {!isFocus && onResetCamera && (
           <mesh
             onClick={(e) => {
@@ -410,17 +205,14 @@ export default function UniverseScene({
       </Canvas>
 
       {/* Tooltip */}
-      {hoveredAgent && (
-        <AgentTooltip
-          agent={agents.find((a) => a.agent_id === hoveredAgent)!}
-        />
-      )}
+      {hoveredAgent && <AgentTooltip agent={agents.find((a) => a.agent_id === hoveredAgent)!} />}
     </div>
   )
 }
 
+/** Simple tooltip shown when hovering an agent */
 function AgentTooltip({ agent }: { agent: Agent }) {
-  const color = STANCE_COLORS[agent.stance] || '#94a3b8'
+  const color = agent.stance === 'pro' ? '#4ade80' : agent.stance === 'con' ? '#fb7185' : '#fbbf24'
   const isChild = !!agent.parent_id
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
@@ -429,9 +221,7 @@ function AgentTooltip({ agent }: { agent: Agent }) {
           {agent.stance === 'pro' ? '✅ 支持' : agent.stance === 'con' ? '❌ 反对' : '⚖️ 中立'}
           {isChild && <span className="ml-2 text-gray-500 font-normal">· 子节点</span>}
         </div>
-        <div className="text-xs text-gray-400 mt-1 max-w-[200px] truncate">
-          {agent.summary}
-        </div>
+        <div className="text-xs text-gray-400 mt-1 max-w-[200px] truncate">{agent.summary}</div>
         <div className="text-[10px] text-gray-500 font-mono mt-1">
           权威: {agent.position.authority.toFixed(2)} · 新颖: {agent.position.novelty.toFixed(2)}
         </div>
@@ -440,22 +230,7 @@ function AgentTooltip({ agent }: { agent: Agent }) {
   )
 }
 
-/** Custom billboard for center label: always faces camera */
-function CenterLabel({ children, position }: { children: React.ReactNode; position: [number, number, number] }) {
-  const groupRef = useRef<THREE.Group>(null)
-  useFrame(({ camera }) => {
-    if (groupRef.current) {
-      groupRef.current.quaternion.copy(camera.quaternion)
-    }
-  })
-  return (
-    <group ref={groupRef} position={position}>
-      {children}
-    </group>
-  )
-}
-
-/** Update canvas clear color when theme changes at runtime */
+/** Updates the renderer clear colour when the theme changes at runtime */
 function SceneBackground({ color }: { color: string }) {
   const { gl } = useThree()
   useEffect(() => {

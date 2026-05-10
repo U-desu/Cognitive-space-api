@@ -1,71 +1,59 @@
 import { useMemo } from 'react'
 import type { Agent } from '../api-types'
-
-/** Fixed root positions: octahedron vertices */
-const ROOT_POSITIONS: [number, number, number][] = [
-  [30, 0, 0],
-  [-30, 0, 0],
-  [0, 30, 0],
-  [0, -30, 0],
-  [0, 0, 30],
-  [0, 0, -30],
-]
-
-const CHILD_RADIUS = 50
-const GRANDCHILD_RADIUS = 65
-const SPREAD = 0.28
-const MIN_NODE_DISTANCE = 12
-
-function normalize(v: [number, number, number]): [number, number, number] {
-  const len = Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
-  if (len === 0) return [0, 1, 0]
-  return [v[0] / len, v[1] / len, v[2] / len]
-}
-
-function cross(a: [number, number, number], b: [number, number, number]): [number, number, number] {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ]
-}
-
-function distance(a: [number, number, number], b: [number, number, number]): number {
-  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
-}
-
-/** Get agent depth (0 = root, 1 = child, 2 = grandchild) */
-function getDepth(agent: Agent, agents: Agent[]): number {
-  let depth = 0
-  let current = agent
-  while (current.parent_id) {
-    depth++
-    const parent = agents.find((a) => a.agent_id === current.parent_id)
-    if (!parent) break
-    current = parent
-  }
-  return depth
-}
+import { normalize, cross, distance, type Vec3 } from '../utils/vectors'
+import { getDepth } from '../utils/agent-hierarchy'
+import {
+  ROOT_POSITIONS,
+  CHILD_RADIUS,
+  GRANDCHILD_RADIUS,
+  LAYER_SPREAD,
+  MIN_NODE_DISTANCE,
+} from './layout-config'
 
 /**
- * Generate child slots around a parent's direction.
- * Children are placed at `radius` along parent's direction,
- * then spread perpendicularly in a circle.
+ * 3D hierarchical layout algorithm: octahedron roots + parent-direction cone offset.
+ *
+ * Design philosophy:
+ * - Layer 0 (roots):    fixed on regular-octahedron vertices (6 slots, 90° apart)
+ * - Layer 1 (children):  radius 50, scattered uniformly in a disc perpendicular
+ *                        to the parent's direction (SPREAD = 0.28)
+ * - Layer 2 (grandchildren): radius 65, same pattern
+ *
+ * Isolation guarantee:
+ * - Neighbouring roots are 90° apart.
+ * - Each root's children live inside a cone of half-angle arctan(0.28) ≈ 15.6°,
+ *   so the full cone is ~31°.
+ * - 31° × 2 = 62° < 90°, therefore cones from adjacent roots never overlap.
+ * - Siblings under the same parent are distributed evenly around a circle in the
+ *   plane perpendicular to the parent direction, so their mutual distance is
+ *   roughly 2π·offset / count, always > MIN_NODE_DISTANCE for small counts.
+ */
+
+/**
+ * Generate child-slot positions around a parent's direction.
+ *
+ * Steps:
+ * 1. Normalise the parent's position → direction vector `dir`.
+ * 2. Build a local coordinate system (xAxis, yAxis) perpendicular to `dir`.
+ * 3. Place `count` points on a circle in that plane, radius = `radius * SPREAD`.
+ * 4. Add the radial offset to the base position `dir * radius`.
+ *
+ * The result is a small "cone" of slots pointing outward from the parent.
  */
 function computeChildSlots(
-  parentPos: [number, number, number],
+  parentPos: Vec3,
   radius: number,
   count: number
-): [number, number, number][] {
+): Vec3[] {
   const dir = normalize(parentPos)
 
-  // Build local coordinate system: xAxis & yAxis perpendicular to dir
-  const up: [number, number, number] = Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
+  // Pick an 'up' vector that is not parallel to dir
+  const up: Vec3 = Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
   const xAxis = normalize(cross(up, dir))
-  const yAxis = cross(dir, xAxis)
+  const yAxis = cross(dir, xAxis) // already unit length because dir & xAxis are unit & orthogonal
 
-  const offsetMag = radius * SPREAD
-  const slots: [number, number, number][] = []
+  const offsetMag = radius * LAYER_SPREAD
+  const slots: Vec3[] = []
 
   for (let i = 0; i < count; i++) {
     const angle = (2 * Math.PI * i) / count
@@ -82,12 +70,12 @@ function computeChildSlots(
   return slots
 }
 
-/** Enforce minimum distance from all occupied positions */
-function enforceMinDistance(
-  pos: [number, number, number],
-  occupied: [number, number, number][]
-): [number, number, number] {
-  let result: [number, number, number] = [...pos]
+/**
+ * If `pos` is closer than MIN_NODE_DISTANCE to any already-occupied position,
+ * nudge it away from the nearest offender(s) along the collision normal.
+ */
+function enforceMinDistance(pos: Vec3, occupied: Vec3[]): Vec3 {
+  let result: Vec3 = [...pos]
   for (const other of occupied) {
     const d = distance(result, other)
     if (d < MIN_NODE_DISTANCE && d > 0) {
@@ -102,23 +90,38 @@ function enforceMinDistance(
   return result
 }
 
-/** Compute 3D positions: roots on octahedron, children in parent-direction cones */
-export function useLayout3D(agents: Agent[]): Map<string, [number, number, number]> {
-  return useMemo(() => {
-    const positions = new Map<string, [number, number, number]>()
+/** Fallback placement for agents that exceed the expected 3-layer depth. */
+function fallbackPosition(parentPos: Vec3): Vec3 {
+  const fb = computeChildSlots(parentPos, GRANDCHILD_RADIUS + 15, 1)[0]
+  return fb
+}
 
-    // Group by depth
+/**
+ * Compute 3D positions for all agents.
+ *
+ * Algorithm overview:
+ * 1. Group agents by depth (0 = root, 1 = child, 2 = grandchild).
+ * 2. Place roots on octahedron vertices (deterministic, sorted by agent_id).
+ * 3. For each parent, generate child slots in a cone around the parent's
+ *    direction and assign them to its children in order.
+ * 4. After every assignment, enforce MIN_NODE_DISTANCE by nudging.
+ * 5. Any agent deeper than layer 2 gets a fallback position.
+ */
+export function useLayout3D(agents: Agent[]): Map<string, Vec3> {
+  return useMemo(() => {
+    const positions = new Map<string, Vec3>()
+
+    // --- Group by depth ---
     const byDepth: Agent[][] = [[], [], []]
     for (const agent of agents) {
       const depth = getDepth(agent, agents)
       byDepth[Math.min(depth, 2)].push(agent)
     }
 
-    const occupied: [number, number, number][] = []
+    const occupied: Vec3[] = []
 
     // --- Layer 0: roots on octahedron vertices ---
     const roots = byDepth[0]
-    // Sort roots by agent_id for deterministic assignment
     roots.sort((a, b) => a.agent_id.localeCompare(b.agent_id))
     for (let i = 0; i < roots.length; i++) {
       const pos = ROOT_POSITIONS[i % ROOT_POSITIONS.length]
@@ -126,8 +129,7 @@ export function useLayout3D(agents: Agent[]): Map<string, [number, number, numbe
       occupied.push(pos)
     }
 
-    // --- Layer 1: children around each root's direction ---
-    // Group children by parent
+    // --- Layer 1: children grouped by parent ---
     const childrenByParent = new Map<string, Agent[]>()
     for (const child of byDepth[1]) {
       const pid = child.parent_id || ''
@@ -148,7 +150,7 @@ export function useLayout3D(agents: Agent[]): Map<string, [number, number, numbe
       }
     }
 
-    // --- Layer 2: grandchildren around each child's direction ---
+    // --- Layer 2: grandchildren grouped by parent ---
     const grandchildrenByParent = new Map<string, Agent[]>()
     for (const gc of byDepth[2]) {
       const pid = gc.parent_id || ''
@@ -169,13 +171,12 @@ export function useLayout3D(agents: Agent[]): Map<string, [number, number, numbe
       }
     }
 
-    // Fallback for any orphaned agents beyond layer 2
+    // --- Fallback for any orphaned agents beyond layer 2 ---
     for (const agent of agents) {
       if (!positions.has(agent.agent_id)) {
         const parentPos = agent.parent_id ? positions.get(agent.parent_id) : undefined
         const anchor = parentPos || [0, 0, 30]
-        const fallback = computeChildSlots(anchor, GRANDCHILD_RADIUS + 15, 1)[0]
-        const pos = enforceMinDistance(fallback, occupied)
+        const pos = enforceMinDistance(fallbackPosition(anchor), occupied)
         positions.set(agent.agent_id, pos)
         occupied.push(pos)
       }
@@ -185,17 +186,5 @@ export function useLayout3D(agents: Agent[]): Map<string, [number, number, numbe
   }, [agents])
 }
 
-/** Build parent -> children map. */
-export function useChildrenMap(agents: Agent[]): Map<string, Agent[]> {
-  return useMemo(() => {
-    const map = new Map<string, Agent[]>()
-    for (const a of agents) {
-      if (a.parent_id) {
-        const list = map.get(a.parent_id) || []
-        list.push(a)
-        map.set(a.parent_id, list)
-      }
-    }
-    return map
-  }, [agents])
-}
+// Re-export so consumers don't need to import from two files
+export { useChildrenMap } from '../utils/agent-hierarchy'
