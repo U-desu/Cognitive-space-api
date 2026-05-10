@@ -1,35 +1,33 @@
 import { useMemo } from 'react'
 import type { Agent } from '../api-types'
 
-/** Layer configuration: [radius, slotCount] for each depth */
-const LAYER_CONFIG: { radius: number; slotCount: number }[] = [
-  { radius: 30, slotCount: 6 },   // depth 0: root agents (up to 6)
-  { radius: 50, slotCount: 18 },  // depth 1: children (up to 3 per root)
-  { radius: 65, slotCount: 36 },  // depth 2: grandchildren (up to 2 per child)
+/** Fixed root positions: octahedron vertices */
+const ROOT_POSITIONS: [number, number, number][] = [
+  [30, 0, 0],
+  [-30, 0, 0],
+  [0, 30, 0],
+  [0, -30, 0],
+  [0, 0, 30],
+  [0, 0, -30],
 ]
 
-const MIN_NODE_DISTANCE = 14
+const CHILD_RADIUS = 50
+const GRANDCHILD_RADIUS = 65
+const SPREAD = 0.28
+const MIN_NODE_DISTANCE = 12
 
-/** Precomputed Fibonacci sphere slots for each layer */
-const LAYER_SLOTS: [number, number, number][][] = LAYER_CONFIG.map((cfg) =>
-  fibonacciSphereSlots(cfg.radius, cfg.slotCount)
-)
+function normalize(v: [number, number, number]): [number, number, number] {
+  const len = Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+  if (len === 0) return [0, 1, 0]
+  return [v[0] / len, v[1] / len, v[2] / len]
+}
 
-/** Generate evenly distributed points on a sphere using golden angle spiral */
-function fibonacciSphereSlots(radius: number, count: number): [number, number, number][] {
-  const points: [number, number, number][] = []
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5))
-  for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2
-    const r = Math.sqrt(1 - y * y)
-    const theta = goldenAngle * i
-    points.push([
-      Math.cos(theta) * r * radius,
-      y * radius,
-      Math.sin(theta) * r * radius,
-    ])
-  }
-  return points
+function cross(a: [number, number, number], b: [number, number, number]): [number, number, number] {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ]
 }
 
 function distance(a: [number, number, number], b: [number, number, number]): number {
@@ -49,130 +47,135 @@ function getDepth(agent: Agent, agents: Agent[]): number {
   return depth
 }
 
-/** Assign the best available slot for a node at given depth around its parent */
-function assignSlot(
-  depth: number,
+/**
+ * Generate child slots around a parent's direction.
+ * Children are placed at `radius` along parent's direction,
+ * then spread perpendicularly in a circle.
+ */
+function computeChildSlots(
   parentPos: [number, number, number],
+  radius: number,
+  count: number
+): [number, number, number][] {
+  const dir = normalize(parentPos)
+
+  // Build local coordinate system: xAxis & yAxis perpendicular to dir
+  const up: [number, number, number] = Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
+  const xAxis = normalize(cross(up, dir))
+  const yAxis = cross(dir, xAxis)
+
+  const offsetMag = radius * SPREAD
+  const slots: [number, number, number][] = []
+
+  for (let i = 0; i < count; i++) {
+    const angle = (2 * Math.PI * i) / count
+    const ox = Math.cos(angle) * offsetMag
+    const oy = Math.sin(angle) * offsetMag
+
+    slots.push([
+      dir[0] * radius + xAxis[0] * ox + yAxis[0] * oy,
+      dir[1] * radius + xAxis[1] * ox + yAxis[1] * oy,
+      dir[2] * radius + xAxis[2] * ox + yAxis[2] * oy,
+    ])
+  }
+
+  return slots
+}
+
+/** Enforce minimum distance from all occupied positions */
+function enforceMinDistance(
+  pos: [number, number, number],
   occupied: [number, number, number][]
 ): [number, number, number] {
-  const layerIdx = Math.min(depth, LAYER_CONFIG.length - 1)
-  const slots = LAYER_SLOTS[layerIdx]
-
-  // Find all unoccupied slots
-  const usedSet = new Set<number>()
-  for (const pos of occupied) {
-    let bestIdx = -1
-    let bestDist = Infinity
-    for (let i = 0; i < slots.length; i++) {
-      const d = distance(pos, slots[i])
-      if (d < bestDist) {
-        bestDist = d
-        bestIdx = i
-      }
-    }
-    if (bestIdx >= 0 && bestDist < 8) {
-      usedSet.add(bestIdx)
-    }
-  }
-
-  const available = slots.map((slot, idx) => ({ slot, idx })).filter((s) => !usedSet.has(s.idx))
-
-  if (available.length === 0) {
-    // Fallback: place near parent if no slots left
-    return fallbackNearParent(parentPos, layerIdx)
-  }
-
-  // Score each available slot
-  const scored = available.map(({ slot }) => {
-    const toParent = distance(slot, parentPos)
-    let toOthers = Infinity
-    for (const other of occupied) {
-      toOthers = Math.min(toOthers, distance(slot, other))
-    }
-    // Prefer far from others, but not too far from parent
-    const score = toOthers - toParent * 0.3
-    return { slot, score }
-  })
-
-  scored.sort((a, b) => b.score - a.score)
-  let chosen = scored[0].slot
-
-  // Enforce minimum distance by nudging away if needed
+  let result: [number, number, number] = [...pos]
   for (const other of occupied) {
-    const d = distance(chosen, other)
+    const d = distance(result, other)
     if (d < MIN_NODE_DISTANCE && d > 0) {
       const scale = MIN_NODE_DISTANCE / d
-      chosen = [
-        chosen[0] + (chosen[0] - other[0]) * (scale - 1) * 0.5,
-        chosen[1] + (chosen[1] - other[1]) * (scale - 1) * 0.5,
-        chosen[2] + (chosen[2] - other[2]) * (scale - 1) * 0.5,
+      result = [
+        result[0] + (result[0] - other[0]) * (scale - 1) * 0.5,
+        result[1] + (result[1] - other[1]) * (scale - 1) * 0.5,
+        result[2] + (result[2] - other[2]) * (scale - 1) * 0.5,
       ]
     }
   }
-
-  return chosen
+  return result
 }
 
-/** Fallback placement when all slots are taken */
-function fallbackNearParent(
-  parentPos: [number, number, number],
-  layerIdx: number
-): [number, number, number] {
-  const radius = LAYER_CONFIG[layerIdx].radius
-  // Place at a fixed offset from parent, on the sphere surface
-  const dir = [parentPos[0], parentPos[1] + radius * 0.3, parentPos[2] + radius * 0.2]
-  const len = Math.sqrt(dir[0] ** 2 + dir[1] ** 2 + dir[2] ** 2)
-  if (len === 0) return [0, radius, 0]
-  const scale = radius / len
-  return [dir[0] * scale, dir[1] * scale, dir[2] * scale]
-}
-
-/** Compute 3D positions for all agents using layered sphere slots */
+/** Compute 3D positions: roots on octahedron, children in parent-direction cones */
 export function useLayout3D(agents: Agent[]): Map<string, [number, number, number]> {
   return useMemo(() => {
     const positions = new Map<string, [number, number, number]>()
 
-    // Group agents by depth
+    // Group by depth
     const byDepth: Agent[][] = [[], [], []]
     for (const agent of agents) {
       const depth = getDepth(agent, agents)
-      const idx = Math.min(depth, 2)
-      byDepth[idx].push(agent)
+      byDepth[Math.min(depth, 2)].push(agent)
     }
 
-    // Place layer 0 (roots) — center is origin
     const occupied: [number, number, number][] = []
-    for (const root of byDepth[0]) {
-      const pos = assignSlot(0, [0, 0, 0], occupied)
-      positions.set(root.agent_id, pos)
+
+    // --- Layer 0: roots on octahedron vertices ---
+    const roots = byDepth[0]
+    // Sort roots by agent_id for deterministic assignment
+    roots.sort((a, b) => a.agent_id.localeCompare(b.agent_id))
+    for (let i = 0; i < roots.length; i++) {
+      const pos = ROOT_POSITIONS[i % ROOT_POSITIONS.length]
+      positions.set(roots[i].agent_id, pos)
       occupied.push(pos)
     }
 
-    // Place layer 1 (children)
+    // --- Layer 1: children around each root's direction ---
+    // Group children by parent
+    const childrenByParent = new Map<string, Agent[]>()
     for (const child of byDepth[1]) {
-      const parentPos = child.parent_id ? positions.get(child.parent_id) : undefined
-      const anchor = parentPos || [0, 0, 0]
-      const pos = assignSlot(1, anchor, occupied)
-      positions.set(child.agent_id, pos)
-      occupied.push(pos)
+      const pid = child.parent_id || ''
+      const list = childrenByParent.get(pid) || []
+      list.push(child)
+      childrenByParent.set(pid, list)
     }
 
-    // Place layer 2 (grandchildren)
-    for (const grandchild of byDepth[2]) {
-      const parentPos = grandchild.parent_id ? positions.get(grandchild.parent_id) : undefined
-      const anchor = parentPos || [0, 0, 0]
-      const pos = assignSlot(2, anchor, occupied)
-      positions.set(grandchild.agent_id, pos)
-      occupied.push(pos)
+    for (const [parentId, children] of childrenByParent) {
+      const parentPos = positions.get(parentId)
+      if (!parentPos) continue
+
+      const slots = computeChildSlots(parentPos, CHILD_RADIUS, children.length)
+      for (let i = 0; i < children.length; i++) {
+        const pos = enforceMinDistance(slots[i], occupied)
+        positions.set(children[i].agent_id, pos)
+        occupied.push(pos)
+      }
+    }
+
+    // --- Layer 2: grandchildren around each child's direction ---
+    const grandchildrenByParent = new Map<string, Agent[]>()
+    for (const gc of byDepth[2]) {
+      const pid = gc.parent_id || ''
+      const list = grandchildrenByParent.get(pid) || []
+      list.push(gc)
+      grandchildrenByParent.set(pid, list)
+    }
+
+    for (const [parentId, grandchildren] of grandchildrenByParent) {
+      const parentPos = positions.get(parentId)
+      if (!parentPos) continue
+
+      const slots = computeChildSlots(parentPos, GRANDCHILD_RADIUS, grandchildren.length)
+      for (let i = 0; i < grandchildren.length; i++) {
+        const pos = enforceMinDistance(slots[i], occupied)
+        positions.set(grandchildren[i].agent_id, pos)
+        occupied.push(pos)
+      }
     }
 
     // Fallback for any orphaned agents beyond layer 2
     for (const agent of agents) {
       if (!positions.has(agent.agent_id)) {
-        const depth = getDepth(agent, agents)
         const parentPos = agent.parent_id ? positions.get(agent.parent_id) : undefined
-        const anchor = parentPos || [0, 0, 0]
-        const pos = assignSlot(depth, anchor, occupied)
+        const anchor = parentPos || [0, 0, 30]
+        const fallback = computeChildSlots(anchor, GRANDCHILD_RADIUS + 15, 1)[0]
+        const pos = enforceMinDistance(fallback, occupied)
         positions.set(agent.agent_id, pos)
         occupied.push(pos)
       }
