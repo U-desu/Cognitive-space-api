@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSpaceState } from '../store/SpaceContext'
-import { Users, Swords, TrendingUp, Target, HelpCircle } from 'lucide-react'
+import { Users, Swords, HelpCircle } from 'lucide-react'
 
 export default function MetricsHUD() {
   const { state } = useSpaceState()
@@ -17,10 +17,6 @@ export default function MetricsHUD() {
   space.agents.forEach((a) => {
     if (a.stance in stanceCount) stanceCount[a.stance]++
   })
-
-  // Fallback mock values for coverage and depth if not computed yet
-  const coverage = metrics?.coverage_area ?? 0.18
-  const depth = metrics?.depth_score ?? 0.12
 
   const items = [
     {
