@@ -19,6 +19,9 @@ export default function SpacePage() {
   const [agentClickCount, setAgentClickCount] = useState(0)
   const [showShare, setShowShare] = useState(false)
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [expandingAgentId, setExpandingAgentId] = useState<string | null>(null)
+  const [debatingAgentIds, setDebatingAgentIds] = useState<string[]>([])
+  const [isPanelBusy, setIsPanelBusy] = useState(false)
 
   useEffect(() => {
     if (!spaceId) return
@@ -52,6 +55,7 @@ export default function SpacePage() {
   }, [spaceId, dispatch])
 
   const handleAgentClick = (agentId: string) => {
+    if (isPanelBusy) return
     setSelectedAgent(agentId)
     setViewMode('focus')
     if (viewMode === 'focus') {
@@ -60,15 +64,14 @@ export default function SpacePage() {
   }
 
   const handleExpandAgent = (agentId: string) => {
+    if (isPanelBusy) return
     setSelectedAgent(agentId)
     setViewMode('focus')
     setAgentClickCount((c) => c + 1)
   }
 
-  const [expandingAgentId, setExpandingAgentId] = useState<string | null>(null)
-  const [debatingAgentIds, setDebatingAgentIds] = useState<string[]>([])
-
   const handleBackToGlobal = () => {
+    if (isPanelBusy) return
     setSelectedAgent(null)
     setViewMode('global')
   }
@@ -138,6 +141,7 @@ export default function SpacePage() {
           onResetCamera={handleResetCamera}
           debatingAgentIds={debatingAgentIds}
           expandingAgentId={expandingAgentId}
+          isBusy={isPanelBusy}
         />
 
         {selectedAgent && isFocus && (
@@ -152,6 +156,7 @@ export default function SpacePage() {
                 setTimeout(() => setExpandingAgentId((current) => current === id ? null : current), 3000)
               }
             }}
+            onBusyChange={setIsPanelBusy}
           />
         )}
 

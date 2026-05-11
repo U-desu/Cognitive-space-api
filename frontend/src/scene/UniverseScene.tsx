@@ -22,6 +22,7 @@ interface Props {
   onResetCamera?: () => void
   debatingAgentIds?: string[]
   expandingAgentId?: string | null
+  isBusy?: boolean
 }
 
 export default function UniverseScene({
@@ -34,6 +35,7 @@ export default function UniverseScene({
   onResetCamera,
   debatingAgentIds = [],
   expandingAgentId,
+  isBusy,
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
@@ -110,10 +112,13 @@ export default function UniverseScene({
       {isFocus && (
         <button
           onClick={onBackToGlobal}
-          className={`absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full backdrop-blur border transition-all hover:scale-105 ${
-            'bg-white/10 border-white/20 text-white hover:bg-white/20'
+          disabled={isBusy}
+          className={`absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full backdrop-blur border transition-all ${
+            isBusy
+              ? 'opacity-30 cursor-not-allowed bg-white/10 border-white/20 text-white'
+              : 'hover:scale-105 bg-white/10 border-white/20 text-white hover:bg-white/20'
           }`}
-          title="返回全局视图"
+          title={isBusy ? '正在处理中，请稍候…' : '返回全局视图'}
         >
           ←
         </button>
@@ -148,8 +153,11 @@ export default function UniverseScene({
           theme={appTheme}
           onClick={(e) => {
             e.stopPropagation()
-            if (isFocus) onBackToGlobal()
-            else onResetCamera?.()
+            if (isFocus) {
+              if (!isBusy) onBackToGlobal()
+            } else {
+              onResetCamera?.()
+            }
           }}
           onPointerOver={(e) => {
             e.stopPropagation()
@@ -208,6 +216,7 @@ export default function UniverseScene({
           onBackToGlobal={onBackToGlobal}
           globalDistance={cameraDistance}
           resetCameraSignal={resetCameraSignal}
+          isBusy={isBusy}
         />
       </Canvas>
 

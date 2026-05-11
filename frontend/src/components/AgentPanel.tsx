@@ -51,9 +51,10 @@ interface Props {
   onClose: () => void
   onDebatingChange?: (agentIds: string[] | null) => void
   onExpandingChange?: (agentId: string | null) => void
+  onBusyChange?: (busy: boolean) => void
 }
 
-export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpandingChange }: Props) {
+export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpandingChange, onBusyChange }: Props) {
   const { state, dispatch } = useSpaceState()
   const { theme } = useTheme()
   const stanceColors = getStanceColors(theme)
@@ -205,6 +206,13 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
     }
   }, [page, clusterAgentId, agent, space, agents])
 
+  // Compute busy state: expand in progress or debate streaming/loading
+  const isBusy = expandLoading || (page === 'debate' && (streamState.loading || (streamState.turns.length > 0 && !streamState.done)))
+
+  useEffect(() => {
+    onBusyChange?.(isBusy)
+  }, [isBusy, onBusyChange])
+
   // Fetch debate history for related edges
   useEffect(() => {
     if (relatedEdges.length === 0) {
@@ -257,6 +265,7 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
             isUserAgent={agentId === USER_AGENT_ID}
             stanceColors={stanceColors}
             onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
+            isBusy={isBusy}
           />
         </div>
         {/* Debate */}
@@ -268,6 +277,7 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
             onBack={() => setPage('profile')}
             onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
             stanceColors={stanceColors}
+            isBusy={isBusy}
           />
         </div>
         {/* Cluster */}
@@ -306,6 +316,7 @@ function ProfileContent({
   isUserAgent,
   stanceColors,
   onCluster,
+  isBusy,
 }: {
   agent: Agent
   relatedEdges: Edge[]
@@ -323,6 +334,7 @@ function ProfileContent({
   isUserAgent: boolean
   stanceColors: ReturnType<typeof getStanceColors>
   onCluster: (agentId: string) => void
+  isBusy: boolean
 }) {
   const { theme } = useTheme()
   const accent = THEMES.find((t) => t.id === theme)?.accent || '#3b82f6'
@@ -333,7 +345,7 @@ function ProfileContent({
           <User className="w-5 h-5 text-indigo-400" />
           <h3 className="text-base font-extrabold text-gray-700">角色详情</h3>
         </div>
-        <button onClick={onClose} className="p-2 rounded-xl hover:bg-indigo-50 transition-colors">
+        <button onClick={onClose} disabled={isBusy} className={`p-2 rounded-xl transition-colors ${isBusy ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50'}`}>
           <X className="w-5 h-5 text-gray-400" />
         </button>
       </div>
@@ -384,12 +396,11 @@ function ProfileContent({
                   onChange={(e) => setExpandHint(e.target.value)}
                   placeholder={`深入探讨 ${agent.name} 的观点...`}
                   className="flex-1 px-3 py-2 text-xs rounded-xl border border-indigo-100 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  disabled={expandLoading}
-                  
+                  disabled={isBusy}
                 />
                 <button
                   onClick={onExpand}
-                  disabled={expandLoading}
+                  disabled={isBusy}
                   className="flex items-center gap-1 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all"
                 >
                   {expandLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
@@ -440,23 +451,24 @@ function ProfileContent({
                     const hasHistory = (edgeDebates[edge.edge_id]?.length ?? 0) > 0
                     return hasHistory ? (
                       <div className="flex gap-2">
-                        <button onClick={() => onDebate(edge)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 text-white text-xs font-bold transition-all">
+                        <button onClick={() => onDebate(edge)} disabled={isBusy} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 text-white text-xs font-bold transition-all ${isBusy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500'}`}>
                           <MessageSquare className="w-3.5 h-3.5" />
                           观看他们辩论
                         </button>
                         <button
                           onClick={() => onReviewDebate(edge)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold transition-all"
+                          disabled={isBusy}
+                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold transition-all ${isBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
                           style={{ backgroundColor: accent, opacity: 0.9 }}
-                          onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1' }}
-                          onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = '0.9' }}
+                          onMouseEnter={(e) => { if (!isBusy) (e.target as HTMLElement).style.opacity = '1' }}
+                          onMouseLeave={(e) => { if (!isBusy) (e.target as HTMLElement).style.opacity = '0.9' }}
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                           回顾辩论
                         </button>
                       </div>
                     ) : (
-                      <button onClick={() => onDebate(edge)} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 text-white text-xs font-bold transition-all">
+                      <button onClick={() => onDebate(edge)} disabled={isBusy} className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 text-white text-xs font-bold transition-all ${isBusy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500'}`}>
                         <MessageSquare className="w-3.5 h-3.5" />
                         观看他们辩论
                       </button>
@@ -480,6 +492,7 @@ function DebateContent({
   onBack,
   onCluster,
   stanceColors,
+  isBusy,
 }: {
   streamState: ReturnType<typeof useDebateStream>['state']
   agents: Agent[]
@@ -487,6 +500,7 @@ function DebateContent({
   onBack: () => void
   onCluster: (agentId: string) => void
   stanceColors: ReturnType<typeof getStanceColors>
+  isBusy: boolean
 }) {
   const [typedTurns, setTypedTurns] = useState<Set<number>>(new Set())
   const agentMap = new Map(agents.map((a) => [a.agent_id, a]))
@@ -521,7 +535,7 @@ function DebateContent({
   return (
     <>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-indigo-50">
-        <button onClick={onBack} className="p-2 rounded-xl hover:bg-indigo-50 transition-colors">
+        <button onClick={onBack} disabled={isBusy} className={`p-2 rounded-xl transition-colors ${isBusy ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50'}`}>
           <ArrowLeft className="w-5 h-5 text-gray-400" />
         </button>
         <div className="flex items-center gap-2">
