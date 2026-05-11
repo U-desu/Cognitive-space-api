@@ -39,7 +39,6 @@ export default function NodeMesh({
   onExpand,
   avatarUrl,
 }: NodeMeshProps) {
-  const pulseRef = useRef<THREE.Mesh>(null)
   const pulseColor = '#fbbf24' // amber-400 yellow-white glow
   const avatarGroupRef = useRef<THREE.Group>(null)
   const [scaleAnim, setScaleAnim] = useState(0)
@@ -64,13 +63,9 @@ export default function NodeMesh({
   const currentScale = baseScale * scaleAnim
 
   // Billboard: rotate entire avatar group to face camera
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera }) => {
     if (avatarGroupRef.current) {
       avatarGroupRef.current.quaternion.copy(camera.quaternion)
-    }
-    if (pulseRef.current && isPulsing) {
-      const s = 1 + Math.sin(clock.getElapsedTime() * 4) * 0.25
-      pulseRef.current.scale.set(s, s, s)
     }
   })
 
@@ -79,13 +74,13 @@ export default function NodeMesh({
       {/* Avatar group — billboarded, contains circle bg + image + border */}
       {texture ? (
         <group ref={avatarGroupRef}>
-          {/* Semi-transparent white circle background */}
+          {/* Semi-transparent circle background */}
           <mesh>
             <circleGeometry args={[2.6, 64]} />
             <meshBasicMaterial
-              color="#ffffff"
+              color={isPulsing ? pulseColor : '#ffffff'}
               transparent
-              opacity={0.2}
+              opacity={isPulsing ? 0.55 : 0.2}
               depthWrite={false}
               side={THREE.DoubleSide}
             />
@@ -150,15 +145,15 @@ export default function NodeMesh({
         >
           <sphereGeometry args={[1.2, 32, 32]} />
           <meshStandardMaterial
-            color={color}
-            emissive={color}
+            color={isPulsing ? pulseColor : color}
+            emissive={isPulsing ? pulseColor : color}
             emissiveIntensity={
-              isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
+              isPulsing ? 0.9 : isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
             }
             roughness={0.3}
             metalness={0.1}
             transparent
-            opacity={isChild ? 0.85 : 0.95}
+            opacity={isPulsing ? 0.95 : isChild ? 0.85 : 0.95}
           />
         </mesh>
       )}
@@ -223,20 +218,6 @@ export default function NodeMesh({
             🔍
           </Text>
         </group>
-      )}
-
-      {/* Pulsing glow effect for debating / expanding agents */}
-      {isPulsing && (
-        <mesh ref={pulseRef}>
-          <sphereGeometry args={[texture ? 2.4 : 1.1, 32, 32]} />
-          <meshBasicMaterial
-            color={pulseColor}
-            transparent
-            opacity={0.45}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
       )}
 
       <NodeLabel agent={agent} darkBg={darkBg} />
