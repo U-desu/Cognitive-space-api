@@ -30,12 +30,26 @@ import {
  */
 
 /**
+ * Deterministic hash from a string (e.g. parent_id) to a number in [0, 1).
+ */
+function hashString(str: string): number {
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) % 0x7fffffff
+  }
+  return (h % 1000) / 1000
+}
+
+/**
  * Generate child-slot positions around a parent's direction.
  *
  * Steps:
  * 1. Normalise the parent's position → direction vector `dir`.
  * 2. Build a local coordinate system (xAxis, yAxis) perpendicular to `dir`.
+ *    The 'up' vector is derived from the parent_id hash so that different
+ *    parents get different orientations → no global "horizontal" bias.
  * 3. Place `count` points on a circle in that plane, radius = `radius * SPREAD`.
+ *    A per-parent random angle offset breaks alignment between sibling groups.
  * 4. Add the radial offset to the base position `dir * radius`.
  *
  * The result is a small "cone" of slots pointing outward from the parent.
@@ -43,20 +57,33 @@ import {
 function computeChildSlots(
   parentPos: Vec3,
   radius: number,
-  count: number
+  count: number,
+  parentId: string
 ): Vec3[] {
   const dir = normalize(parentPos)
 
-  // Pick an 'up' vector that is not parallel to dir
-  const up: Vec3 = Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
+  // Deterministic random values derived from parent_id
+  const h = hashString(parentId)
+  const theta = h * 2 * Math.PI       // random rotation around dir
+  const phi = (h * 0.5 + 0.25) * Math.PI  // tilt away from vertical (~45-135°)
+
+  // Build a pseudo-random up vector that is guaranteed non-parallel to dir
+  const rawUp: Vec3 = [
+    Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta),
+  ]
+  const up = normalize(rawUp)
+
   const xAxis = normalize(cross(up, dir))
   const yAxis = cross(dir, xAxis) // already unit length because dir & xAxis are unit & orthogonal
 
   const offsetMag = radius * LAYER_SPREAD
+  const angleOffset = hashString(parentId + '_a') * 2 * Math.PI
   const slots: Vec3[] = []
 
   for (let i = 0; i < count; i++) {
-    const angle = (2 * Math.PI * i) / count
+    const angle = angleOffset + (2 * Math.PI * i) / count
     const ox = Math.cos(angle) * offsetMag
     const oy = Math.sin(angle) * offsetMag
 
@@ -92,7 +119,7 @@ function enforceMinDistance(pos: Vec3, occupied: Vec3[]): Vec3 {
 
 /** Fallback placement for agents that exceed the expected 3-layer depth. */
 function fallbackPosition(parentPos: Vec3): Vec3 {
-  const fb = computeChildSlots(parentPos, GRANDCHILD_RADIUS + 15, 1)[0]
+  const fb = computeChildSlots(parentPos, GRANDCHILD_RADIUS + 15, 1, 'fallback')[0]
   return fb
 }
 
@@ -142,7 +169,7 @@ export function useLayout3D(agents: Agent[]): Map<string, Vec3> {
       const parentPos = positions.get(parentId)
       if (!parentPos) continue
 
-      const slots = computeChildSlots(parentPos, CHILD_RADIUS, children.length)
+      const slots = computeChildSlots(parentPos, CHILD_RADIUS, children.length, parentId)
       for (let i = 0; i < children.length; i++) {
         const pos = enforceMinDistance(slots[i], occupied)
         positions.set(children[i].agent_id, pos)
@@ -163,7 +190,7 @@ export function useLayout3D(agents: Agent[]): Map<string, Vec3> {
       const parentPos = positions.get(parentId)
       if (!parentPos) continue
 
-      const slots = computeChildSlots(parentPos, GRANDCHILD_RADIUS, grandchildren.length)
+      const slots = computeChildSlots(parentPos, GRANDCHILD_RADIUS, grandchildren.length, parentId)
       for (let i = 0; i < grandchildren.length; i++) {
         const pos = enforceMinDistance(slots[i], occupied)
         positions.set(grandchildren[i].agent_id, pos)
