@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   X,
   ArrowLeft,
@@ -112,13 +112,19 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
     stop()
   }, [agentId, stop])
 
+  // Use refs to avoid triggering useEffect on every callback re-creation
+  const onDebatingChangeRef = useRef(onDebatingChange)
+  onDebatingChangeRef.current = onDebatingChange
+  const onExpandingChangeRef = useRef(onExpandingChange)
+  onExpandingChangeRef.current = onExpandingChange
+
   // Stop stream when leaving debate page, and notify parent
   useEffect(() => {
     if (page !== 'debate') {
       stop()
-      onDebatingChange?.(null)
+      onDebatingChangeRef.current?.(null)
     }
-  }, [page, stop, onDebatingChange])
+  }, [page, stop])
 
   function getOpponent(edge: Edge): Agent | null {
     const id = edge.source === agentId ? edge.target : edge.source
