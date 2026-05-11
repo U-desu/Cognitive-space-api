@@ -173,7 +173,10 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
       alert('展开节点失败，请重试')
     } finally {
       setExpandLoading(false)
-      onExpandingChange?.(null)
+      // Delay clearing the pulse until the new node has time to appear in the 3D scene
+      setTimeout(() => {
+        onExpandingChangeRef.current?.(null)
+      }, 2500)
     }
   }
 

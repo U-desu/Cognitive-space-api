@@ -228,11 +228,11 @@ export default function NodeMesh({
       {/* Pulsing glow effect for debating / expanding agents */}
       {isPulsing && (
         <mesh ref={pulseRef}>
-          <sphereGeometry args={[texture ? 3.2 : 1.8, 32, 32]} />
+          <sphereGeometry args={[texture ? 2.4 : 1.1, 32, 32]} />
           <meshBasicMaterial
             color={pulseColor}
             transparent
-            opacity={0.2}
+            opacity={0.45}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />
