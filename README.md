@@ -145,7 +145,63 @@ Core (更新 Trajectory)
 
 ---
 
-## Quick Start
+## 生产部署（Docker 一键启动）
+
+服务器上只需执行：
+
+```bash
+git clone https://github.com/U-desu/Cognitive-space-api.git
+cd Cognitive-space-api
+./deploy.sh
+```
+
+`deploy.sh` 会自动完成：
+1. 检查并创建 `.env`（首次运行会提示你配置 API Key）
+2. 检查 Docker / Docker Compose 是否安装
+3. 构建并启动前后端容器
+
+访问 `http://服务器IP` 即可使用。
+
+### Docker 部署详情
+
+架构：Nginx（前端静态文件 + 反向代理）+ Python All-in-One（5 个微服务）
+
+```
+┌─────────────┐     ┌──────────────────────────────────────────┐
+│   Nginx     │────▶│  Gateway (8000)                          │
+│  (port 80)  │     │    ├── Core (8001)                       │
+│  静态文件    │     │    ├── Generator (8002) ← 调用 LLM API   │
+│  反向代理    │     │    ├── Compute (8003)                    │
+│             │     │    └── Aggregator (8004)                 │
+└─────────────┘     └──────────────────────────────────────────┘
+```
+
+手动操作（如果不使用 `deploy.sh`）：
+
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env，设置 OPENAI_API_KEY 或 DEEPSEEK_API_KEY
+
+# 2. 构建并启动
+docker compose up -d --build
+
+# 3. 查看日志
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# 4. 停止
+docker compose down
+```
+
+**生产环境注意**：
+- 务必修改 `.env` 中的 `JWT_SECRET_KEY`
+- 如需 HTTPS，在 `frontend/nginx.conf` 中配置 SSL 证书
+- 如需数据持久化，设置 `USE_DB=true` 并在 `docker-compose.yml` 中加入 PostgreSQL 服务
+
+---
+
+## 本地开发 Quick Start
 
 ### 1. 安装依赖
 
