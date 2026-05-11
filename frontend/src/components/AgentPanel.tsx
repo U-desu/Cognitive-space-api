@@ -295,7 +295,7 @@ function ProfileContent({
                   placeholder={`深入探讨 ${agent.name} 的观点...`}
                   className="flex-1 px-3 py-2 text-xs rounded-xl border border-indigo-100 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   disabled={expandLoading}
-                  onKeyDown={(e) => e.key === 'Enter' && onExpand()}
+                  
                 />
                 <button
                   onClick={onExpand}
@@ -329,7 +329,7 @@ function ProfileContent({
               const opponent = getOpponent(edge)
               if (!opponent) return null
               return (
-                <div key={edge.edge_id} className="p-4 rounded-2xl border border-indigo-50 bg-gray-50/50 hover:bg-white hover:shadow-sm hover:border-indigo-100 transition-all">
+                <div key={edge.edge_id} className="p-4 rounded-2xl border border-indigo-100 bg-white shadow-sm hover:bg-gray-50/50 hover:border-indigo-50 transition-all">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{opponent.stance === 'pro' ? '✅' : opponent.stance === 'con' ? '❌' : '⚖️'}</span>

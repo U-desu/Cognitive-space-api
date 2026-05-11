@@ -7,7 +7,7 @@ import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
 import ThemeSwitcher from '../theme/ThemeSwitcher'
-import { Loader2, Share2, ArrowLeft } from 'lucide-react'
+import { Loader2, Share2 } from 'lucide-react'
 import Logo from './Logo'
 
 export default function SpacePage() {
@@ -97,30 +97,29 @@ export default function SpacePage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-black/5 text-gray-500 transition-colors"
-          title="返回首页"
+      <header className="flex items-center gap-3 pl-3 pr-6 pt-6 pb-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
+        <div
+          onClick={() => navigate(-1)}
+          className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+          title="返回上级"
         >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Logo size={20} />
-          <span className="text-xs font-bold text-indigo-400 shrink-0">认知空间</span>
-          <span className="text-gray-300">·</span>
+          <Logo size={24} />
+        </div>
+        <div className="flex items-center flex-1 min-w-0">
           <h2 className="text-sm font-bold text-gray-700 truncate">
             {state.space.query}
           </h2>
         </div>
-        <ThemeSwitcher />
-        <button
-          onClick={() => setShowShare(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          分享
-        </button>
+        <div className="flex items-center gap-3">
+          <ThemeSwitcher />
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            分享
+          </button>
+        </div>
       </header>
 
       <MetricsHUD />

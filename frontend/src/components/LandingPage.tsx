@@ -191,7 +191,7 @@ export default function LandingPage() {
             <Logo size={40} />
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-space-text tracking-tight text-glow">
-            认知空间
+            知乎空间
           </h1>
         </div>
 
