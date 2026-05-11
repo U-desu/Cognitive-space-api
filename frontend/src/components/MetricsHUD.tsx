@@ -7,8 +7,6 @@ export default function MetricsHUD() {
   const [tooltipIdx, setTooltipIdx] = useState<number | null>(null)
 
   const space = state.space
-  const traj = state.trajectory
-  const metrics = traj?.cognitive_metrics as Record<string, number> | undefined
 
   if (!space) return null
 
