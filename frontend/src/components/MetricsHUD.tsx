@@ -39,22 +39,6 @@ export default function MetricsHUD() {
       bg: 'bg-rose-50',
       tooltip: '支持派、反对派、中立派各有几人，帮你一眼看清阵营格局',
     },
-    {
-      label: '认知扩展',
-      value: `${(coverage * 100).toFixed(0)}%`,
-      icon: TrendingUp,
-      color: 'text-amber-400',
-      bg: 'bg-amber-50',
-      tooltip: '你在权威-创新二维平面上探索过的区域面积，面积越大代表接触的观点越多元',
-    },
-    {
-      label: '探索深度',
-      value: `${(depth * 100).toFixed(0)}%`,
-      icon: Target,
-      color: 'text-indigo-400',
-      bg: 'bg-indigo-50',
-      tooltip: '基于你参与的辩论次数和停留时间计算，代表你对冲突的深入理解程度',
-    },
   ]
 
   return (
