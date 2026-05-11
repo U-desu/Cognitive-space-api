@@ -49,9 +49,11 @@ function getStanceColors(theme: string) {
 interface Props {
   agentId: string | null
   onClose: () => void
+  onDebatingChange?: (agentIds: string[] | null) => void
+  onExpandingChange?: (agentId: string | null) => void
 }
 
-export default function AgentPanel({ agentId, onClose }: Props) {
+export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpandingChange }: Props) {
   const { state, dispatch } = useSpaceState()
   const { theme } = useTheme()
   const stanceColors = getStanceColors(theme)
@@ -110,12 +112,13 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     stop()
   }, [agentId, stop])
 
-  // Stop stream when leaving debate page
+  // Stop stream when leaving debate page, and notify parent
   useEffect(() => {
     if (page !== 'debate') {
       stop()
+      onDebatingChange?.(null)
     }
-  }, [page, stop])
+  }, [page, stop, onDebatingChange])
 
   function getOpponent(edge: Edge): Agent | null {
     const id = edge.source === agentId ? edge.target : edge.source
@@ -126,6 +129,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     if (!space) return
     setSelectedEdgeForDebate(edge)
     setPage('debate')
+    onDebatingChange?.([edge.source, edge.target])
     start(space.space_id, edge.edge_id, 2)
   }
 
@@ -135,6 +139,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     if (!debates || debates.length === 0) return
     const debate = debates[0]
     setSelectedEdgeForDebate(edge)
+    onDebatingChange?.(debate.participants)
     loadHistorical(debate)
     setPage('debate')
   }
@@ -142,6 +147,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   async function handleExpand() {
     if (!space || !agent || agentId === USER_AGENT_ID) return
     setExpandLoading(true)
+    onExpandingChange?.(agent.agent_id)
     try {
       const req: AgentExpandPayload = {
         query_hint: expandHint || `深入探讨 ${agent.name} 的观点`,
@@ -161,6 +167,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
       alert('展开节点失败，请重试')
     } finally {
       setExpandLoading(false)
+      onExpandingChange?.(null)
     }
   }
 
@@ -262,7 +269,7 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             zhihuUsers={zhihuUsers}
             zhihuQuestions={zhihuQuestions}
             loading={externalDataLoading}
-            onBack={() => setPage('debate')}
+            onBack={() => setPage('profile')}
             stanceColors={stanceColors}
           />
         </div>

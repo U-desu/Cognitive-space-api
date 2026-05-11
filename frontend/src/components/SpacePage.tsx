@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
@@ -59,20 +59,14 @@ export default function SpacePage() {
     }
   }
 
-  const [expandingAgentId, setExpandingAgentId] = useState<string | null>(null)
-
   const handleExpandAgent = (agentId: string) => {
     setSelectedAgent(agentId)
     setViewMode('focus')
     setAgentClickCount((c) => c + 1)
-    setExpandingAgentId(agentId)
-    // Clear expanding highlight after 3 seconds
-    setTimeout(() => setExpandingAgentId(null), 3000)
   }
 
-  const debatingAgentIds = useMemo(() => {
-    return state.debate?.participants ?? []
-  }, [state.debate])
+  const [expandingAgentId, setExpandingAgentId] = useState<string | null>(null)
+  const [debatingAgentIds, setDebatingAgentIds] = useState<string[]>([])
 
   const handleBackToGlobal = () => {
     setSelectedAgent(null)
@@ -151,6 +145,13 @@ export default function SpacePage() {
             key={agentClickCount}
             agentId={selectedAgent}
             onClose={handleBackToGlobal}
+            onDebatingChange={(ids) => setDebatingAgentIds(ids ?? [])}
+            onExpandingChange={(id) => {
+              setExpandingAgentId(id)
+              if (id) {
+                setTimeout(() => setExpandingAgentId((current) => current === id ? null : current), 3000)
+              }
+            }}
           />
         )}
 
