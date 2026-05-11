@@ -10,9 +10,10 @@ interface CameraRigProps {
   globalDistance?: number
   resetCameraSignal?: number
   isBusy?: boolean
+  onShowBusyToast?: () => void
 }
 
-export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, globalDistance = 80, resetCameraSignal, isBusy }: CameraRigProps) {
+export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, globalDistance = 80, resetCameraSignal, isBusy, onShowBusyToast }: CameraRigProps) {
   const { camera } = useThree()
   const controlsRef = useRef<any>(null)
 
@@ -112,7 +113,11 @@ export default function CameraRig({ targetPosition, isFocus, onBackToGlobal, glo
       minDistance={10}
       maxDistance={200}
       onDoubleClick={() => {
-        if (isFocus && onBackToGlobal && !isBusy) {
+        if (isFocus && onBackToGlobal) {
+          if (isBusy) {
+            onShowBusyToast?.()
+            return
+          }
           onBackToGlobal()
         }
       }}

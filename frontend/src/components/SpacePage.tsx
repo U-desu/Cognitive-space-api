@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSpaceState } from '../store/SpaceContext'
 import { api } from '../api'
@@ -21,7 +21,8 @@ export default function SpacePage() {
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [expandingAgentId, setExpandingAgentId] = useState<string | null>(null)
   const [debatingAgentIds, setDebatingAgentIds] = useState<string[]>([])
-  const [isPanelBusy, setIsPanelBusy] = useState(false)
+  const [busyState, setBusyState] = useState<{ busy: boolean; type?: 'debate' | 'expand' }>({ busy: false })
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false })
 
   useEffect(() => {
     if (!spaceId) return
@@ -54,8 +55,17 @@ export default function SpacePage() {
     return () => { cancelled = true }
   }, [spaceId, dispatch])
 
+  const showBusyToast = useCallback(() => {
+    const label = busyState.type === 'debate' ? '辩论' : busyState.type === 'expand' ? '扩展' : '处理'
+    setToast({ message: `当前在${label}中，请耐心等待`, visible: true })
+    setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000)
+  }, [busyState.type])
+
   const handleAgentClick = (agentId: string) => {
-    if (isPanelBusy) return
+    if (busyState.busy) {
+      showBusyToast()
+      return
+    }
     setSelectedAgent(agentId)
     setViewMode('focus')
     if (viewMode === 'focus') {
@@ -64,14 +74,20 @@ export default function SpacePage() {
   }
 
   const handleExpandAgent = (agentId: string) => {
-    if (isPanelBusy) return
+    if (busyState.busy) {
+      showBusyToast()
+      return
+    }
     setSelectedAgent(agentId)
     setViewMode('focus')
     setAgentClickCount((c) => c + 1)
   }
 
   const handleBackToGlobal = () => {
-    if (isPanelBusy) return
+    if (busyState.busy) {
+      showBusyToast()
+      return
+    }
     setSelectedAgent(null)
     setViewMode('global')
   }
@@ -105,8 +121,14 @@ export default function SpacePage() {
       {/* Header */}
       <header className="flex items-center gap-3 pl-3 pr-6 pt-6 pb-3 border-b border-indigo-100 bg-white/80 backdrop-blur z-40">
         <div
-          onClick={() => navigate(-1)}
-          className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+          onClick={() => {
+            if (busyState.busy) {
+              showBusyToast()
+              return
+            }
+            navigate(-1)
+          }}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${busyState.busy ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           title="返回上级"
         >
           <Logo size={24} />
@@ -141,7 +163,8 @@ export default function SpacePage() {
           onResetCamera={handleResetCamera}
           debatingAgentIds={debatingAgentIds}
           expandingAgentId={expandingAgentId}
-          isBusy={isPanelBusy}
+          isBusy={busyState.busy}
+          onShowBusyToast={showBusyToast}
         />
 
         {selectedAgent && isFocus && (
@@ -156,7 +179,8 @@ export default function SpacePage() {
                 setTimeout(() => setExpandingAgentId((current) => current === id ? null : current), 3000)
               }
             }}
-            onBusyChange={setIsPanelBusy}
+            onBusyChange={(busy, type) => setBusyState({ busy, type })}
+            onShowBusyToast={showBusyToast}
           />
         )}
 
@@ -167,6 +191,13 @@ export default function SpacePage() {
           />
         )}
       </main>
+
+      {/* Busy Toast */}
+      <div
+        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-5 py-2.5 rounded-full bg-gray-900/90 text-white text-sm font-medium shadow-xl backdrop-blur-sm transition-all duration-300 ${toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+      >
+        {toast.message}
+      </div>
     </div>
   )
 }

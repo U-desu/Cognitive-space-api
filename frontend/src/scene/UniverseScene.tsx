@@ -23,6 +23,7 @@ interface Props {
   debatingAgentIds?: string[]
   expandingAgentId?: string | null
   isBusy?: boolean
+  onShowBusyToast?: () => void
 }
 
 export default function UniverseScene({
@@ -36,6 +37,7 @@ export default function UniverseScene({
   debatingAgentIds = [],
   expandingAgentId,
   isBusy,
+  onShowBusyToast,
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
@@ -111,8 +113,13 @@ export default function UniverseScene({
       {/* Back button (focus mode only) */}
       {isFocus && (
         <button
-          onClick={onBackToGlobal}
-          disabled={isBusy}
+          onClick={() => {
+            if (isBusy) {
+              onShowBusyToast?.()
+              return
+            }
+            onBackToGlobal()
+          }}
           className={`absolute top-4 left-4 z-30 flex items-center justify-center w-10 h-10 rounded-full backdrop-blur border transition-all ${
             isBusy
               ? 'opacity-30 cursor-not-allowed bg-white/10 border-white/20 text-white'
@@ -154,7 +161,11 @@ export default function UniverseScene({
           onClick={(e) => {
             e.stopPropagation()
             if (isFocus) {
-              if (!isBusy) onBackToGlobal()
+              if (isBusy) {
+                onShowBusyToast?.()
+                return
+              }
+              onBackToGlobal()
             } else {
               onResetCamera?.()
             }
@@ -217,6 +228,7 @@ export default function UniverseScene({
           globalDistance={cameraDistance}
           resetCameraSignal={resetCameraSignal}
           isBusy={isBusy}
+          onShowBusyToast={onShowBusyToast}
         />
       </Canvas>
 
