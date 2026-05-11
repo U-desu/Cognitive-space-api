@@ -19,7 +19,13 @@ const BASE = import.meta.env.VITE_API_BASE_URL || ''
 function getGuestId(): string | null {
   let gid = localStorage.getItem('cs_guest_id')
   if (!gid) {
-    gid = `guest_${crypto.randomUUID()}`
+    // crypto.randomUUID requires secure context (HTTPS or localhost)
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      gid = `guest_${crypto.randomUUID()}`
+    } else {
+      // Fallback for HTTP non-localhost environments
+      gid = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+    }
     localStorage.setItem('cs_guest_id', gid)
   }
   return gid
