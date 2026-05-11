@@ -63,7 +63,7 @@ export default function MetricsHUD() {
         {items.map((item, idx) => (
           <div
             key={item.label}
-            className={`relative flex items-center gap-2 px-3 py-1 rounded-xl border border-indigo-50 shadow-sm ${item.bg} cursor-help`}
+            className={`relative flex items-center gap-2 px-3 py-1 rounded-xl border border-indigo-50 shadow-sm ${item.bg} cursor-help hover:border-indigo-200 transition-colors`}
             onMouseEnter={() => setTooltipIdx(idx)}
             onMouseLeave={() => setTooltipIdx(null)}
           >
@@ -71,14 +71,14 @@ export default function MetricsHUD() {
             <div>
               <div className="flex items-center gap-1">
                 <div className="text-[9px] text-gray-400 font-bold">{item.label}</div>
-                <HelpCircle className="w-2.5 h-2.5 text-gray-300" />
+                <HelpCircle className="w-3 h-3 text-indigo-300" />
               </div>
               <div className="text-xs font-bold text-gray-700">{item.value}</div>
             </div>
 
             {/* Tooltip */}
             {tooltipIdx === idx && (
-              <div className="absolute top-full left-0 mt-2 z-50 px-3 py-2 rounded-xl bg-gray-800 text-white text-xs max-w-[220px] shadow-xl">
+              <div className="absolute top-full left-0 mt-2 z-[60] px-3 py-2 rounded-xl bg-gray-800 text-white text-xs max-w-[220px] shadow-xl animate-in fade-in slide-in-from-top-1 duration-200">
                 {item.tooltip}
                 <div className="absolute -top-1 left-6 w-2 h-2 bg-gray-800 rotate-45" />
               </div>

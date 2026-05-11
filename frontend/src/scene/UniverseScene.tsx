@@ -20,6 +20,8 @@ interface Props {
   onExpandAgent?: (agentId: string) => void
   resetCameraSignal?: number
   onResetCamera?: () => void
+  debatingAgentIds?: string[]
+  expandingAgentId?: string | null
 }
 
 export default function UniverseScene({
@@ -30,6 +32,8 @@ export default function UniverseScene({
   onExpandAgent,
   resetCameraSignal,
   onResetCamera,
+  debatingAgentIds = [],
+  expandingAgentId,
 }: Props) {
   const { state } = useSpaceState()
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null)
@@ -55,6 +59,14 @@ export default function UniverseScene({
     for (const child of children) set.add(child.agent_id)
     return set
   }, [selectedAgent, agents, childrenMap])
+
+  /** Which nodes should have a pulsing glow animation */
+  const pulsingAgentIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const id of debatingAgentIds) set.add(id)
+    if (expandingAgentId) set.add(expandingAgentId)
+    return set
+  }, [debatingAgentIds, expandingAgentId])
 
   /** Camera distance ensures all nodes are visible: maxDist * 1.5, min 28 */
   const cameraDistance = useMemo(() => {
@@ -158,6 +170,7 @@ export default function UniverseScene({
           selectedAgent={selectedAgent}
           hoveredAgent={hoveredAgent}
           highlightSet={highlightSet}
+          pulsingAgentIds={pulsingAgentIds}
           agentAvatarMap={agentAvatarMap}
           darkBg={isDark}
           onAgentClick={onAgentClick}

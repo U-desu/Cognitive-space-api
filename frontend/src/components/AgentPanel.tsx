@@ -21,6 +21,7 @@ import { useTheme } from '../theme/ThemeContext'
 import { THEMES } from '../theme/themes'
 import StreamTurnCard from './StreamTurnCard'
 import type { Edge, Agent, ExternalUser, ExternalQuestion, Debate } from '../api-types'
+import { getDepth } from '../utils/agent-hierarchy'
 
 type PanelPage = 'profile' | 'debate' | 'cluster'
 
@@ -235,8 +236,10 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             setExpandHint={setExpandHint}
             expandLoading={expandLoading}
             onExpand={handleExpand}
+            agentDepth={agent ? getDepth(agent, agents) : 0}
             isUserAgent={agentId === USER_AGENT_ID}
             stanceColors={stanceColors}
+            onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
           />
         </div>
         {/* Debate */}
@@ -281,8 +284,10 @@ function ProfileContent({
   setExpandHint,
   expandLoading,
   onExpand,
+  agentDepth,
   isUserAgent,
   stanceColors,
+  onCluster,
 }: {
   agent: Agent
   relatedEdges: Edge[]
@@ -295,8 +300,10 @@ function ProfileContent({
   setExpandHint: (v: string) => void
   expandLoading: boolean
   onExpand: () => void
+  agentDepth: number
   isUserAgent: boolean
   stanceColors: ReturnType<typeof getStanceColors>
+  onCluster: (agentId: string) => void
 }) {
   const { theme } = useTheme()
   const accent = THEMES.find((t) => t.id === theme)?.accent || '#3b82f6'
@@ -334,8 +341,21 @@ function ProfileContent({
             <p className="text-sm text-gray-700 leading-relaxed font-medium bg-indigo-50 rounded-xl p-3">{agent.summary}</p>
           </div>
 
-          {/* Expand section */}
+          {/* Cluster link */}
           {!isUserAgent && (
+            <div className="mt-3">
+              <button
+                onClick={() => onCluster(agent.agent_id)}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-indigo-100 text-indigo-500 text-xs font-bold transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                查看该角色的知乎相关用户和话题
+              </button>
+            </div>
+          )}
+
+          {/* Expand section */}
+          {!isUserAgent && agentDepth < 2 && (
             <div className="mt-4 pt-4 border-t border-indigo-50">
               <p className="text-xs text-gray-400 font-bold mb-2">展开探索</p>
               <div className="flex gap-2">
@@ -508,7 +528,7 @@ function DebateContent({
                   </button>
                 )
               })}
-              <div className="ml-auto text-[10px] text-gray-300">点击查看聚类 →</div>
+              <div className="ml-auto text-[10px] text-indigo-400 font-bold animate-pulse">点击查看聚类 →</div>
             </div>
           </div>
         )}

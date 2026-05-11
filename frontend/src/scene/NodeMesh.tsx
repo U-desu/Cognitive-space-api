@@ -15,6 +15,7 @@ interface NodeMeshProps {
   childCount: number
   darkBg?: boolean
   isNetworkHighlighted?: boolean
+  isPulsing?: boolean
   onClick: () => void
   onPointerOver: () => void
   onPointerOut: () => void
@@ -31,12 +32,15 @@ export default function NodeMesh({
   childCount,
   darkBg = false,
   isNetworkHighlighted = false,
+  isPulsing = false,
   onClick,
   onPointerOver,
   onPointerOut,
   onExpand,
   avatarUrl,
 }: NodeMeshProps) {
+  const pulseRef = useRef<THREE.Mesh>(null)
+  const pulseColor = '#fbbf24' // amber-400 yellow-white glow
   const avatarGroupRef = useRef<THREE.Group>(null)
   const [scaleAnim, setScaleAnim] = useState(0)
 
@@ -60,9 +64,13 @@ export default function NodeMesh({
   const currentScale = baseScale * scaleAnim
 
   // Billboard: rotate entire avatar group to face camera
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     if (avatarGroupRef.current) {
       avatarGroupRef.current.quaternion.copy(camera.quaternion)
+    }
+    if (pulseRef.current && isPulsing) {
+      const s = 1 + Math.sin(clock.getElapsedTime() * 4) * 0.25
+      pulseRef.current.scale.set(s, s, s)
     }
   })
 
@@ -215,6 +223,20 @@ export default function NodeMesh({
             🔍
           </Text>
         </group>
+      )}
+
+      {/* Pulsing glow effect for debating / expanding agents */}
+      {isPulsing && (
+        <mesh ref={pulseRef}>
+          <sphereGeometry args={[texture ? 3.2 : 1.8, 32, 32]} />
+          <meshBasicMaterial
+            color={pulseColor}
+            transparent
+            opacity={0.2}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
       )}
 
       <NodeLabel agent={agent} darkBg={darkBg} />

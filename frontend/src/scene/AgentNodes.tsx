@@ -8,6 +8,7 @@ interface AgentNodesProps {
   selectedAgent: string | null
   hoveredAgent: string | null
   highlightSet: Set<string>
+  pulsingAgentIds: Set<string>
   agentAvatarMap: Map<string, string>
   darkBg: boolean
   onAgentClick: (id: string) => void
@@ -24,6 +25,7 @@ export default function AgentNodes({
   selectedAgent,
   hoveredAgent,
   highlightSet,
+  pulsingAgentIds,
   agentAvatarMap,
   darkBg,
   onAgentClick,
@@ -51,6 +53,7 @@ export default function AgentNodes({
             childCount={childList.length}
             darkBg={darkBg}
             isNetworkHighlighted={highlightSet.has(agent.agent_id)}
+            isPulsing={pulsingAgentIds.has(agent.agent_id)}
             onClick={() => onAgentClick(agent.agent_id)}
             onPointerOver={() => {
               setHoveredAgent(agent.agent_id)
