@@ -327,7 +327,8 @@ def list_space_history(owner_id: str) -> list[Space]:
 def delete_space(space_id: str) -> bool:
     """Delete a space and all its related data (agents, edges, debates, trajectories).
     
-    Relies on DB-level ON DELETE CASCADE for related tables.
+    Manually deletes child rows in dependency order to avoid PostgreSQL
+    CASCADE conflicts when multiple FK paths touch the same row.
     """
     session_gen = get_db_session()
     session = next(session_gen)
@@ -335,7 +336,32 @@ def delete_space(space_id: str) -> bool:
         row = session.query(SpaceDB).filter_by(space_id=space_id).first()
         if not row:
             return False
+
+        # 1. trajectory_events (depend on trajectories)
+        traj_ids = [
+            t.trajectory_id
+            for t in session.query(TrajectoryDB).filter_by(space_id=space_id).all()
+        ]
+        if traj_ids:
+            session.query(TrajectoryEventDB).filter(
+                TrajectoryEventDB.trajectory_id.in_(traj_ids)
+            ).delete(synchronize_session=False)
+
+        # 2. trajectories
+        session.query(TrajectoryDB).filter_by(space_id=space_id).delete(synchronize_session=False)
+
+        # 3. debates (depend on edges, but also have a direct space_id FK)
+        session.query(DebateDB).filter_by(space_id=space_id).delete(synchronize_session=False)
+
+        # 4. edges (depend on agents and spaces)
+        session.query(EdgeDB).filter_by(space_id=space_id).delete(synchronize_session=False)
+
+        # 5. agents
+        session.query(AgentDB).filter_by(space_id=space_id).delete(synchronize_session=False)
+
+        # 6. spaces (the root row)
         session.delete(row)
+
         session.commit()
         return True
     except Exception:

@@ -253,6 +253,7 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
             expandLoading={expandLoading}
             onExpand={handleExpand}
             agentDepth={agent ? getDepth(agent, agents) : 0}
+            childCount={agents.filter((a) => a.parent_id === agent?.agent_id).length}
             isUserAgent={agentId === USER_AGENT_ID}
             stanceColors={stanceColors}
             onCluster={(id) => { setClusterAgentId(id); setPage('cluster') }}
@@ -301,6 +302,7 @@ function ProfileContent({
   expandLoading,
   onExpand,
   agentDepth,
+  childCount,
   isUserAgent,
   stanceColors,
   onCluster,
@@ -317,6 +319,7 @@ function ProfileContent({
   expandLoading: boolean
   onExpand: () => void
   agentDepth: number
+  childCount: number
   isUserAgent: boolean
   stanceColors: ReturnType<typeof getStanceColors>
   onCluster: (agentId: string) => void
@@ -371,7 +374,7 @@ function ProfileContent({
           )}
 
           {/* Expand section */}
-          {!isUserAgent && agentDepth < 2 && (
+          {!isUserAgent && agentDepth < 2 && childCount < 4 && (
             <div className="mt-4 pt-4 border-t border-indigo-50">
               <p className="text-xs text-gray-400 font-bold mb-2">展开探索</p>
               <div className="flex gap-2">
