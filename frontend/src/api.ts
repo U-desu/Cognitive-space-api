@@ -88,6 +88,8 @@ export const api = {
     post<{ edges: Edge[]; space_stats: SpaceStats }>(`/spaces/${id}/edges`),
   createDebate: (id: string, req: DebateRequest) =>
     post<Debate>(`/spaces/${id}/debates`, req),
+  getDebatesByEdge: (edgeId: string) =>
+    get<Debate[]>(`/debates/by-edge/${edgeId}`),
   /**
    * Stream debate generation via SSE.
    * Use hooks/useDebateStream.ts instead of calling this directly.

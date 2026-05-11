@@ -18,8 +18,9 @@ import { api } from '../api'
 import type { AgentExpandPayload } from '../api-types'
 import { useDebateStream } from '../hooks/useDebateStream'
 import { useTheme } from '../theme/ThemeContext'
+import { THEMES } from '../theme/themes'
 import StreamTurnCard from './StreamTurnCard'
-import type { Edge, Agent, ExternalUser, ExternalQuestion } from '../api-types'
+import type { Edge, Agent, ExternalUser, ExternalQuestion, Debate } from '../api-types'
 
 type PanelPage = 'profile' | 'debate' | 'cluster'
 
@@ -60,13 +61,14 @@ export default function AgentPanel({ agentId, onClose }: Props) {
   const [clusterAgentId, setClusterAgentId] = useState<string | null>(null)
 
   // SSE stream state — shared by both entry points
-  const { state: streamState, start, stop } = useDebateStream()
+  const { state: streamState, start, stop, loadHistorical } = useDebateStream()
 
   // External data from aggregator service
   const [domainLabels, setDomainLabels] = useState<Record<string, string>>({})
   const [zhihuUsers, setZhihuUsers] = useState<ExternalUser[]>([])
   const [zhihuQuestions, setZhihuQuestions] = useState<ExternalQuestion[]>([])
   const [externalDataLoading, setExternalDataLoading] = useState(false)
+  const [edgeDebates, setEdgeDebates] = useState<Record<string, Debate[]>>({})
 
   const space = state.space
   const edges = state.edges
@@ -126,6 +128,16 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     start(space.space_id, edge.edge_id, 2)
   }
 
+  async function handleReviewDebate(edge: Edge) {
+    if (!space) return
+    const debates = edgeDebates[edge.edge_id]
+    if (!debates || debates.length === 0) return
+    const debate = debates[0]
+    setSelectedEdgeForDebate(edge)
+    loadHistorical(debate)
+    setPage('debate')
+  }
+
   async function handleExpand() {
     if (!space || !agent || agentId === USER_AGENT_ID) return
     setExpandLoading(true)
@@ -139,6 +151,9 @@ export default function AgentPanel({ agentId, onClose }: Props) {
       const existingIds = new Set(space.agents.map((a) => a.agent_id))
       const newAgents = updatedSpace.agents.filter((a) => !existingIds.has(a.agent_id))
       dispatch({ type: 'APPEND_AGENTS', payload: { agents: newAgents } })
+      // Re-compute edges so newly expanded agents participate in conflict ranking
+      const edgesRes = await api.computeEdges(space.space_id)
+      dispatch({ type: 'SET_EDGES', payload: edgesRes.edges })
       setExpandHint('')
     } catch (err) {
       console.error('Expand failed:', err)
@@ -173,6 +188,34 @@ export default function AgentPanel({ agentId, onClose }: Props) {
     }
   }, [page, clusterAgentId, agent, space, agents])
 
+  // Fetch debate history for related edges
+  useEffect(() => {
+    if (relatedEdges.length === 0) {
+      setEdgeDebates({})
+      return
+    }
+    let cancelled = false
+
+    Promise.all(
+      relatedEdges.map(async (edge) => {
+        try {
+          const debates = await api.getDebatesByEdge(edge.edge_id)
+          return { edgeId: edge.edge_id, debates }
+        } catch {
+          return { edgeId: edge.edge_id, debates: [] as Debate[] }
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return
+      const map: Record<string, Debate[]> = {}
+      results.forEach((r) => {
+        map[r.edgeId] = r.debates
+      })
+      setEdgeDebates(map)
+    })
+    return () => { cancelled = true }
+  }, [relatedEdges])
+
   if (!agentId || !agent) return null
 
   return (
@@ -185,6 +228,8 @@ export default function AgentPanel({ agentId, onClose }: Props) {
             relatedEdges={relatedEdges}
             getOpponent={getOpponent}
             onDebate={handleDebate}
+            onReviewDebate={handleReviewDebate}
+            edgeDebates={edgeDebates}
             onClose={onClose}
             expandHint={expandHint}
             setExpandHint={setExpandHint}
@@ -229,6 +274,8 @@ function ProfileContent({
   relatedEdges,
   getOpponent,
   onDebate,
+  onReviewDebate,
+  edgeDebates,
   onClose,
   expandHint,
   setExpandHint,
@@ -241,6 +288,8 @@ function ProfileContent({
   relatedEdges: Edge[]
   getOpponent: (edge: Edge) => Agent | null
   onDebate: (edge: Edge) => void
+  onReviewDebate: (edge: Edge) => void
+  edgeDebates: Record<string, Debate[]>
   onClose: () => void
   expandHint: string
   setExpandHint: (v: string) => void
@@ -249,6 +298,8 @@ function ProfileContent({
   isUserAgent: boolean
   stanceColors: ReturnType<typeof getStanceColors>
 }) {
+  const { theme } = useTheme()
+  const accent = THEMES.find((t) => t.id === theme)?.accent || '#3b82f6'
   return (
     <>
       <div className="flex items-center justify-between px-5 py-4 border-b border-indigo-50">
@@ -346,10 +397,32 @@ function ProfileContent({
                       ))}
                     </div>
                   )}
-                  <button onClick={() => onDebate(edge)} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 text-white text-xs font-bold transition-all">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    观看他们辩论
-                  </button>
+                  {(() => {
+                    const hasHistory = (edgeDebates[edge.edge_id]?.length ?? 0) > 0
+                    return hasHistory ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => onDebate(edge)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 text-white text-xs font-bold transition-all">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          观看他们辩论
+                        </button>
+                        <button
+                          onClick={() => onReviewDebate(edge)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold transition-all"
+                          style={{ backgroundColor: accent, opacity: 0.9 }}
+                          onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1' }}
+                          onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = '0.9' }}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          回顾辩论
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => onDebate(edge)} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-400 hover:bg-indigo-500 text-white text-xs font-bold transition-all">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        观看他们辩论
+                      </button>
+                    )
+                  })()}
                 </div>
               )
             })}

@@ -624,6 +624,14 @@ async def expand_agent(
     return Space(**updated_data)
 
 
+# ── Debate History ──
+
+@app.get("/debates/by-edge/{edge_id}")
+async def get_debates_by_edge(edge_id: str):
+    """Get debate history for a given edge."""
+    return await _get(config.CORE_URL, f"/debates/by-edge/{edge_id}")
+
+
 # ── Health ──
 
 @app.get("/health")

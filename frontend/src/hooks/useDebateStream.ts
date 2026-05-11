@@ -36,6 +36,14 @@ interface UseDebateStreamReturn {
   state: DebateStreamState
   start: (spaceId: string, edgeId: string, rounds?: number) => void
   stop: () => void
+  loadHistorical: (debate: {
+    debate_id: string
+    space_id?: string
+    edge_id: string
+    participants: string[]
+    transcript: { round: number; turns: { agent: string; type: string; content: string; evidence: string[] }[] }[]
+    synthesis: StreamSynthesis
+  }) => void
 }
 
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
@@ -162,5 +170,39 @@ export function useDebateStream(): UseDebateStreamReturn {
     [stop]
   )
 
-  return { state, start, stop }
+  const loadHistorical = useCallback(
+    (debate: {
+      debate_id: string
+      space_id?: string
+      edge_id: string
+      participants: string[]
+      transcript: { round: number; turns: { agent: string; type: string; content: string; evidence: string[] }[] }[]
+      synthesis: StreamSynthesis
+    }) => {
+      stop()
+      const turns: StreamTurn[] = []
+      debate.transcript.forEach((r) => {
+        r.turns.forEach((t) => {
+          turns.push({ ...t, round: r.round })
+        })
+      })
+      setState({
+        turns,
+        synthesis: debate.synthesis,
+        done: {
+          debate_id: debate.debate_id,
+          space_id: debate.space_id || '',
+          edge_id: debate.edge_id,
+          participants: debate.participants,
+          transcript: debate.transcript as { round: number; turns: StreamTurn[] }[],
+          synthesis: debate.synthesis,
+        },
+        loading: false,
+        error: null,
+      })
+    },
+    [stop]
+  )
+
+  return { state, start, stop, loadHistorical }
 }
