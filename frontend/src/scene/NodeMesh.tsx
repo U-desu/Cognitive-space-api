@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
@@ -41,7 +41,13 @@ export default function NodeMesh({
 }: NodeMeshProps) {
   const pulseColor = '#fbbf24' // amber-400 yellow-white glow
   const avatarGroupRef = useRef<THREE.Group>(null)
+  const bgMeshRef = useRef<THREE.Mesh>(null)
+  const fallbackMeshRef = useRef<THREE.Mesh>(null)
   const [scaleAnim, setScaleAnim] = useState(0)
+
+  // Pre-create color objects to avoid GC per frame
+  const whiteColor = useMemo(() => new THREE.Color('#ffffff'), [])
+  const yellowColor = useMemo(() => new THREE.Color(pulseColor), [])
 
   const color = STANCE_COLORS[agent.stance] || '#94a3b8'
   const isChild = !!agent.parent_id
@@ -62,10 +68,25 @@ export default function NodeMesh({
   const baseScale = isSelected ? 1.6 : isHovered ? 1.3 : 1.0
   const currentScale = baseScale * scaleAnim
 
-  // Billboard: rotate entire avatar group to face camera
-  useFrame(({ camera }) => {
+  // Billboard + pulse color animation
+  useFrame(({ camera, clock }) => {
     if (avatarGroupRef.current) {
       avatarGroupRef.current.quaternion.copy(camera.quaternion)
+    }
+    if (isPulsing) {
+      const t = (Math.sin(clock.getElapsedTime() * 4) + 1) / 2 // 0 ~ 1 oscillation
+      if (bgMeshRef.current) {
+        const mat = bgMeshRef.current.material as THREE.MeshBasicMaterial
+        mat.color.copy(whiteColor).lerp(yellowColor, t)
+        mat.opacity = 0.2 + t * 0.65 // 0.2 ~ 0.85
+      }
+      if (fallbackMeshRef.current) {
+        const mat = fallbackMeshRef.current.material as THREE.MeshStandardMaterial
+        const baseColor = new THREE.Color(color)
+        mat.color.copy(baseColor).lerp(yellowColor, t)
+        mat.emissive.copy(baseColor).lerp(yellowColor, t)
+        mat.emissiveIntensity = 0.2 + t * 0.9 // 0.2 ~ 1.1
+      }
     }
   })
 
@@ -75,12 +96,12 @@ export default function NodeMesh({
       {texture ? (
         <group ref={avatarGroupRef}>
           {/* Semi-transparent circle background */}
-          <mesh>
+          <mesh ref={bgMeshRef}>
             <circleGeometry args={[2.6, 64]} />
             <meshBasicMaterial
-              color={isPulsing ? pulseColor : '#ffffff'}
+              color="#ffffff"
               transparent
-              opacity={isPulsing ? 0.55 : 0.2}
+              opacity={0.2}
               depthWrite={false}
               side={THREE.DoubleSide}
             />
@@ -129,6 +150,7 @@ export default function NodeMesh({
       ) : (
         /* Fallback sphere when no avatar */
         <mesh
+          ref={fallbackMeshRef}
           onClick={(e) => {
             e.stopPropagation()
             onClick()
@@ -145,15 +167,15 @@ export default function NodeMesh({
         >
           <sphereGeometry args={[1.2, 32, 32]} />
           <meshStandardMaterial
-            color={isPulsing ? pulseColor : color}
-            emissive={isPulsing ? pulseColor : color}
+            color={color}
+            emissive={color}
             emissiveIntensity={
-              isPulsing ? 0.9 : isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
+              isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
             }
             roughness={0.3}
             metalness={0.1}
             transparent
-            opacity={isPulsing ? 0.95 : isChild ? 0.85 : 0.95}
+            opacity={isChild ? 0.85 : 0.95}
           />
         </mesh>
       )}
