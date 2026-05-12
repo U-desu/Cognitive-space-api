@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useAuth } from './useAuth'
 import { useTheme } from '../theme/ThemeContext'
 import ThemeSwitcher from '../theme/ThemeSwitcher'
 import Logo from '../components/Logo'
@@ -77,14 +76,8 @@ function TechBackground() {
 }
 
 export default function LoginPage() {
-  const { login, register } = useAuth()
   const { theme } = useTheme()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const accentColors = {
     cyberpunk: '#00f0ff',
@@ -94,30 +87,13 @@ export default function LoginPage() {
   }
   const accent = accentColors[theme]
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSubmitting(true)
-    try {
-      if (mode === 'login') {
-        await login(username, password)
-      } else {
-        await register(username, password, email || undefined)
-      }
-    } catch (err: any) {
-      setError(err.message || '认证失败')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleGithub = async () => {
+  const handleZhihu = async () => {
     try {
       const { api } = await import('../api')
-      const data = await api.getGithubAuthUrl()
+      const data = await api.getZhihuAuthUrl()
       window.location.href = data.url
     } catch (err: any) {
-      setError(err.message || 'GitHub 登录失败')
+      setError(err.message || '知乎登录失败')
     }
   }
 
@@ -159,121 +135,22 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-space-text mb-1.5">
-                用户名
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none focus:ring-2 transition-all text-space-text placeholder:text-gray-500"
-                style={{
-                  backgroundColor: 'var(--space-bg)',
-                  borderColor: accent + '20',
-                }}
-                placeholder="输入用户名"
-                required
-              />
-            </div>
-
-            {mode === 'register' && (
-              <div>
-                <label className="block text-sm font-semibold text-space-text mb-1.5">
-                  邮箱（可选）
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none focus:ring-2 transition-all text-space-text placeholder:text-gray-500"
-                  style={{
-                    backgroundColor: 'var(--space-bg)',
-                    borderColor: accent + '20',
-                  }}
-                  placeholder="your@email.com"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-semibold text-space-text mb-1.5">
-                密码
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none focus:ring-2 transition-all text-space-text placeholder:text-gray-500"
-                style={{
-                  backgroundColor: 'var(--space-bg)',
-                  borderColor: accent + '20',
-                }}
-                placeholder={mode === 'register' ? '至少 6 位密码' : '输入密码'}
-                required
-                minLength={mode === 'register' ? 6 : undefined}
-              />
-            </div>
-
-            {error && (
-              <p className="text-rose-500 text-sm text-center rounded-lg py-2" style={{ backgroundColor: 'rgba(255,0,0,0.06)' }}>
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 rounded-xl text-white font-bold shadow-lg disabled:opacity-50 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}aa)` }}
-            >
-              {submitting ? '处理中...' : mode === 'login' ? '登录' : '注册'}
-            </button>
-          </form>
-
-          <div className="flex items-center my-5">
-            <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, transparent, ${accent}30, transparent)` }} />
-            <span className="px-3 text-gray-500 text-xs">或</span>
-            <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, transparent, ${accent}30, transparent)` }} />
-          </div>
+          {error && (
+            <p className="text-rose-500 text-sm text-center rounded-lg py-2 mb-4" style={{ backgroundColor: 'rgba(255,0,0,0.06)' }}>
+              {error}
+            </p>
+          )}
 
           <button
-            onClick={handleGithub}
+            onClick={handleZhihu}
             className="w-full py-3 rounded-xl text-white hover:opacity-90 flex items-center justify-center gap-2 font-medium transition-all shadow-lg"
-            style={{ backgroundColor: '#1a1a2e', border: `1px solid ${accent}20` }}
+            style={{ backgroundColor: '#0084ff', border: `1px solid ${accent}20` }}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5.721 0C2.251 0 0 2.25 0 5.719V18.28C0 21.751 2.252 24 5.721 24h12.56C21.751 24 24 21.75 24 18.281V5.72C24 2.249 21.75 0 18.281 0zm1.964 4.078c-.271.73-.5 1.434-.68 2.11h4.587c.545-.006.445 1.168.445 1.168H6.283c-.036.593-.114 1.196-.114 1.796h6.652s.4 1.143-.312 1.143H9.064c-.076.734-.166 1.465-.166 2.186 0 3.572 1.855 5.692 4.56 6.961-.282.224-.565.45-.834.69 1.813-.963 3.312-2.568 3.922-4.744.17.626.26 1.29.26 1.987 0 3.48-2.497 5.83-4.908 6.986 2.754-2.074 4.492-5.395 4.492-8.974 0-.59-.066-1.165-.184-1.725h2.102s.312-1.143-.363-1.143h-2.38c-.038-.6-.076-1.204-.1-1.796h3.704s.545-1.168.03-1.168h-4.13a34.044 34.044 0 00-.66-2.11h2.73s.486-1.055-.178-1.055H8.813z" />
             </svg>
-            使用 GitHub 登录
+            使用知乎登录
           </button>
-
-          <p className="mt-5 text-center text-sm text-gray-500">
-            {mode === 'login' ? (
-              <>
-                还没有账号？{' '}
-                <button
-                  onClick={() => setMode('register')}
-                  className="font-semibold transition-colors hover:opacity-80"
-                  style={{ color: accent }}
-                >
-                  去注册
-                </button>
-              </>
-            ) : (
-              <>
-                已有账号？{' '}
-                <button
-                  onClick={() => setMode('login')}
-                  className="font-semibold transition-colors hover:opacity-80"
-                  style={{ color: accent }}
-                >
-                  去登录
-                </button>
-              </>
-            )}
-          </p>
         </div>
       </div>
     </div>

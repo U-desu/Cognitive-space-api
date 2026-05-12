@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Compass, ArrowRight, Briefcase, Code, Heart } from 'lucide-react'
 import { api } from '../api'
 import { useSpaceState } from '../store/SpaceContext'
-// import { useAuth } from '../auth/useAuth'
+import { useAuth } from '../auth/useAuth'
 import { useTheme } from '../theme/ThemeContext'
-// import ThemeSwitcher from '../theme/ThemeSwitcher'
 import LoadingBunny from './LoadingBunny'
 import SpaceHistorySidebar from './SpaceHistorySidebar'
 import DedupModal from './DedupModal'
@@ -76,7 +75,7 @@ export default function LandingPage() {
   const [dedupSimilarity, setDedupSimilarity] = useState(0)
   const navigate = useNavigate()
   const { dispatch } = useSpaceState()
-  // const { user, logout } = useAuth()
+  const { user, logout } = useAuth()
   const { theme } = useTheme()
 
   useEffect(() => {
@@ -160,8 +159,6 @@ export default function LandingPage() {
         onClose={() => setShowDedup(false)}
       />
 
-      {/* 顶部导航栏已隐藏 */}
-      {/*
       <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-end px-6 py-3">
         <div className="flex items-center gap-3">
           {user?.avatar ? (
@@ -183,7 +180,6 @@ export default function LandingPage() {
           </button>
         </div>
       </header>
-      */}
 
       <div
         className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-14 transition-all duration-300"

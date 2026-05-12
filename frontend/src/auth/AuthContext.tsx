@@ -30,22 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.user) {
         setUser(data.user)
       } else {
-        // Guest mode: bypass login screen
-        setUser({
-          user_id: 'guest',
-          username: '访客',
-          auth_provider: 'password',
-          created_at: 0,
-        })
+        setUser(null)
       }
     } catch {
-      // Guest mode: bypass login screen
-      setUser({
-        user_id: 'guest',
-        username: '访客',
-        auth_provider: 'password',
-        created_at: 0,
-      })
+      setUser(null)
     } finally {
       setLoading(false)
     }

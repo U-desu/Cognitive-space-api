@@ -46,7 +46,7 @@ def find_similar_space(owner_id: str, query_embedding: list[float], threshold: f
     best_space = None
     best_score = 0.0
     for space in _spaces.values():
-        if space.user_id != owner_id and space.guest_id != owner_id:
+        if space.user_id != owner_id:
             continue
         if not space.query_embedding:
             continue
@@ -66,10 +66,10 @@ def find_similar_space(owner_id: str, query_embedding: list[float], threshold: f
 
 
 def list_space_history(owner_id: str) -> list[Space]:
-    """List all spaces for the given owner (user or guest)."""
+    """List all spaces for the given user."""
     spaces = [
         s for s in _spaces.values()
-        if s.user_id == owner_id or s.guest_id == owner_id
+        if s.user_id == owner_id
     ]
     # Sort by creation time (space_id prefix has no timestamp, use arbitrary stable order)
     return spaces

@@ -30,7 +30,7 @@ def _space_to_db(space: Space) -> SpaceDB:
         dimensions=dims,
         metadata_=space.metadata.model_dump() if space.metadata else {},
         user_id=space.user_id,
-        guest_id=space.guest_id,
+
         query_embedding=space.query_embedding,
     )
 
@@ -48,7 +48,7 @@ def _space_from_db(row: SpaceDB) -> Space:
         agents=[],
         metadata=SpaceMetadata(**(row.metadata_ or {})),
         user_id=row.user_id,
-        guest_id=row.guest_id,
+
         query_embedding=row.query_embedding,
     )
 
@@ -269,9 +269,8 @@ def find_similar_space(owner_id: str, query_embedding: list[float], threshold: f
     session_gen = get_db_session()
     session = next(session_gen)
     try:
-        from sqlalchemy import or_
         rows = session.query(SpaceDB).filter(
-            or_(SpaceDB.user_id == owner_id, SpaceDB.guest_id == owner_id)
+            SpaceDB.user_id == owner_id
         ).filter(SpaceDB.query_embedding.isnot(None)).all()
         best_space = None
         best_score = 0.0
@@ -302,13 +301,12 @@ def find_similar_space(owner_id: str, query_embedding: list[float], threshold: f
 
 
 def list_space_history(owner_id: str) -> list[Space]:
-    """List all spaces for the given owner (user or guest), ordered by creation time desc."""
+    """List all spaces for the given user, ordered by creation time desc."""
     session_gen = get_db_session()
     session = next(session_gen)
     try:
-        from sqlalchemy import or_
         rows = session.query(SpaceDB).filter(
-            or_(SpaceDB.user_id == owner_id, SpaceDB.guest_id == owner_id)
+            SpaceDB.user_id == owner_id
         ).order_by(SpaceDB.created_at.desc()).all()
         spaces = []
         for row in rows:

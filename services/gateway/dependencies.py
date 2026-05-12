@@ -32,13 +32,11 @@ async def require_user(request: Request) -> dict:
 
 
 def get_owner_id(request: Request, user: Optional[dict] = None) -> tuple[Optional[str], Optional[str]]:
-    """Resolve owner identity from user or guest header.
+    """Resolve owner identity from authenticated user only.
 
-    Returns (owner_id, owner_type) where owner_type is 'user' or 'guest'.
+    Returns (owner_id, owner_type) where owner_type is always 'user'.
+    Guest mode has been removed.
     """
     if user:
         return user.get("user_id"), "user"
-    guest_id = request.headers.get("X-Guest-ID")
-    if guest_id:
-        return guest_id, "guest"
     return None, None

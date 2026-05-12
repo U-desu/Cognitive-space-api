@@ -76,7 +76,7 @@ def similarity_search(request: SimilaritySearchRequest):
 
 @router.get("/history/{owner_id}", response_model=list[Space])
 def get_space_history(owner_id: str):
-    """Get all spaces for an owner (user_id or guest_id), ordered by creation time desc."""
+    """Get all spaces for a user, ordered by creation time desc."""
     return store.list_space_history(owner_id)
 
 

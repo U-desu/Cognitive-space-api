@@ -40,11 +40,12 @@ from services.shared.models import (
     ExpandAgentRequest,
     AgentExpandPayload,
 )
-from services.gateway.dependencies import get_current_user, require_user, get_owner_id
+from services.gateway.dependencies import get_current_user, require_user
 from typing import Optional
 from services.gateway.auth.jwt import create_access_token, COOKIE_NAME
 from services.gateway.auth.password_auth import register_user, authenticate_user
 from services.gateway.auth.github_oauth import get_github_authorize_url, handle_github_callback
+from services.gateway.auth.zhihu_oauth import get_zhihu_authorize_url, handle_zhihu_callback
 from services.gateway.auth.store import get_user, link_space_to_user, get_user_spaces
 
 
@@ -64,6 +65,15 @@ app.add_middleware(
 
 
 # ── Helper: HTTP client ──
+
+async def _require_space_owner(space_id: str, user_id: str):
+    """Verify the user owns the given space. Raises 403 if not."""
+    data = await _get(config.CORE_URL, f"/spaces/{space_id}")
+    space = Space(**data)
+    if space.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not owner of this space")
+    return space
+
 
 async def _post(service_url: str, path: str, json_data: dict = None):
     async with httpx.AsyncClient(trust_env=False) as client:
@@ -91,16 +101,15 @@ async def _delete(service_url: str, path: str):
 @app.post("/spaces", response_model=Space)
 async def create_space(
     request: CreateSpaceRequest,
-    req: Request,
-    user: Optional[dict] = Depends(get_current_user),
+    user: dict = Depends(require_user),
 ):
     """Orchestrated space creation with deduplication:
     1. Check for similar existing space (owner-scoped)
     2. If found, return existing space
     3. Otherwise: generate agents + store space
-    4. Link to user (if logged in)
+    4. Link to user
     """
-    owner_id, owner_type = get_owner_id(req, user)
+    owner_id = user["user_id"]
 
     # 1. Compute query embedding for deduplication
     try:
@@ -115,7 +124,7 @@ async def create_space(
         query_embedding = []
 
     # 2. Check for similar existing space
-    if owner_id and query_embedding:
+    if query_embedding:
         try:
             dedup_resp = await _post(
                 config.CORE_URL,
@@ -162,17 +171,15 @@ async def create_space(
             complexity="high" if len(agents) > 4 else "medium",
             estimated_nodes=len(agents),
         ),
-        user_id=user["user_id"] if user else None,
-        guest_id=owner_id if owner_type == "guest" else None,
+        user_id=owner_id,
         query_embedding=query_embedding if query_embedding else None,
     )
 
     # 5. Store in core
     await _post(config.CORE_URL, "/spaces/ingest", space.model_dump())
 
-    # 6. Link to user (only if logged in)
-    if user:
-        link_space_to_user(user["user_id"], space_id)
+    # 6. Link to user
+    link_space_to_user(owner_id, space_id)
 
     return space
 
@@ -191,28 +198,22 @@ async def get_my_spaces(user: dict = Depends(require_user)):
 
 
 @app.get("/spaces/history")
-async def get_space_history(req: Request, user: Optional[dict] = Depends(get_current_user)):
-    """Get space history for the current user or guest.
-
-    Works for both authenticated users and visitors (via X-Guest-ID header).
-    """
-    owner_id, _ = get_owner_id(req, user)
-    if not owner_id:
-        return []
-    spaces_data = await _get(config.CORE_URL, f"/spaces/history/{owner_id}")
+async def get_space_history(user: dict = Depends(require_user)):
+    """Get space history for the current user."""
+    spaces_data = await _get(config.CORE_URL, f"/spaces/history/{user['user_id']}")
     return [Space(**s) for s in spaces_data]
 
 
 @app.get("/spaces/{space_id}", response_model=Space)
-async def get_space(space_id: str, user: Optional[dict] = Depends(get_current_user)):
-    data = await _get(config.CORE_URL, f"/spaces/{space_id}")
-    return Space(**data)
+async def get_space(space_id: str, user: dict = Depends(require_user)):
+    space = await _require_space_owner(space_id, user["user_id"])
+    return space
 
 
 @app.delete("/spaces/{space_id}")
 async def delete_space(space_id: str, user: dict = Depends(require_user)):
     """Delete a space (owner only)."""
-    # TODO: verify user owns the space
+    await _require_space_owner(space_id, user["user_id"])
     data = await _delete(config.CORE_URL, f"/spaces/{space_id}")
     return data
 
@@ -220,12 +221,14 @@ async def delete_space(space_id: str, user: dict = Depends(require_user)):
 # ── Orchestrated: Edge Computation ──
 
 @app.post("/spaces/{space_id}/edges")
-async def compute_edges(space_id: str, user: Optional[dict] = Depends(get_current_user)):
+async def compute_edges(space_id: str, user: dict = Depends(require_user)):
     """Orchestrated edge computation:
     1. Call compute service to calculate edges
     2. Store edges in core service
     3. Return edges + stats
     """
+    await _require_space_owner(space_id, user["user_id"])
+
     # Compute
     data = await _post(
         config.COMPUTE_URL,
@@ -250,7 +253,7 @@ async def compute_edges(space_id: str, user: Optional[dict] = Depends(get_curren
 # ── Orchestrated: Debate Generation ──
 
 @app.post("/spaces/{space_id}/debates")
-async def create_debate(space_id: str, request: DebateRequest, user: Optional[dict] = Depends(get_current_user)):
+async def create_debate(space_id: str, request: DebateRequest, user: dict = Depends(require_user)):
     """Orchestrated debate generation:
     1. Fetch space + edge from core
     2. Call generator to generate debate
@@ -258,7 +261,8 @@ async def create_debate(space_id: str, request: DebateRequest, user: Optional[di
     4. Record trajectory action
     5. Compute + update metrics
     """
-    # Fetch space and edge
+    # Verify ownership and fetch space + edge
+    space = await _require_space_owner(space_id, user["user_id"])
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -335,13 +339,14 @@ async def create_debate(space_id: str, request: DebateRequest, user: Optional[di
 # ── Orchestrated: Debate Generation (SSE Stream) ──
 
 @app.post("/spaces/{space_id}/debates/stream")
-async def create_debate_stream(space_id: str, request: DebateRequest, user: Optional[dict] = Depends(get_current_user)):
+async def create_debate_stream(space_id: str, request: DebateRequest, user: dict = Depends(require_user)):
     """Stream debate generation via SSE.
 
     Proxies the Generator's /generate-stream endpoint, pushing each turn
     to the frontend as it is generated by the independent debate agents.
     """
-    # Fetch space and edge (same as sync endpoint)
+    # Verify ownership and fetch space + edge (same as sync endpoint)
+    await _require_space_owner(space_id, user["user_id"])
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -389,7 +394,8 @@ async def create_debate_stream(space_id: str, request: DebateRequest, user: Opti
 # ── Orchestrated: Trajectory ──
 
 @app.get("/spaces/{space_id}/trajectory")
-async def get_trajectory(space_id: str, user: Optional[dict] = Depends(get_current_user)):
+async def get_trajectory(space_id: str, user: dict = Depends(require_user)):
+    await _require_space_owner(space_id, user["user_id"])
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -415,7 +421,8 @@ async def get_trajectory(space_id: str, user: Optional[dict] = Depends(get_curre
 # ── Perspectives (lightweight, no LLM) ──
 
 @app.post("/spaces/{space_id}/perspectives")
-async def generate_perspectives(space_id: str, payload: dict, user: Optional[dict] = Depends(get_current_user)):
+async def generate_perspectives(space_id: str, payload: dict, user: dict = Depends(require_user)):
+    await _require_space_owner(space_id, user["user_id"])
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 
@@ -437,7 +444,8 @@ async def generate_perspectives(space_id: str, payload: dict, user: Optional[dic
 # ── Export ──
 
 @app.post("/spaces/{space_id}/export")
-async def export_space(space_id: str, payload: ExportRequest, user: Optional[dict] = Depends(get_current_user)):
+async def export_space(space_id: str, payload: ExportRequest, user: dict = Depends(require_user)):
+    await _require_space_owner(space_id, user["user_id"])
     data = await _post(
         config.CORE_URL,
         f"/spaces/{space_id}/export",
@@ -474,68 +482,53 @@ async def get_domain_labels():
 
 # ── Auth Routes ──
 
-@app.get("/auth/github/authorize")
-async def github_authorize():
-    """Return GitHub OAuth authorization URL."""
-    return {"url": get_github_authorize_url()}
+# ── 知乎 OAuth (唯一登录方式) ──
+
+@app.get("/auth/zhihu/authorize")
+async def zhihu_authorize():
+    """Return Zhihu OAuth authorization URL."""
+    return {"url": get_zhihu_authorize_url()}
 
 
-@app.get("/auth/github/callback")
-async def github_callback(code: str):
-    """Handle GitHub OAuth callback."""
-    user = await handle_github_callback(code)
+@app.get("/auth/zhihu/callback")
+async def zhihu_callback(code: str):
+    """Handle Zhihu OAuth callback."""
+    user = await handle_zhihu_callback(code)
     if not user:
-        raise HTTPException(status_code=400, detail="GitHub authentication failed")
+        raise HTTPException(status_code=400, detail="Zhihu authentication failed")
     token = create_access_token(user.user_id)
     response = RedirectResponse(url="/")
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=False,  # Set True in production with HTTPS
+        secure=False,
         samesite="lax",
         max_age=60 * 60 * 24 * 7,
     )
     return response
+
+
+# ── 以下登录方式已屏蔽 ──
+
+@app.get("/auth/github/authorize")
+async def github_authorize():
+    raise HTTPException(status_code=403, detail="GitHub login is disabled")
+
+
+@app.get("/auth/github/callback")
+async def github_callback(code: str):
+    raise HTTPException(status_code=403, detail="GitHub login is disabled")
 
 
 @app.post("/auth/register")
 async def auth_register(request: UserRegisterRequest):
-    """Register a new user with username and password."""
-    try:
-        user = register_user(request)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    token = create_access_token(user.user_id)
-    response = JSONResponse(content={"user": user.model_dump()})
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 7,
-    )
-    return response
+    raise HTTPException(status_code=403, detail="Username/password registration is disabled")
 
 
 @app.post("/auth/login")
 async def auth_login(request: UserLoginRequest):
-    """Login with username and password."""
-    user = authenticate_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = create_access_token(user.user_id)
-    response = JSONResponse(content={"user": user.model_dump()})
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 7,
-    )
-    return response
+    raise HTTPException(status_code=403, detail="Username/password login is disabled")
 
 
 @app.get("/auth/me")
@@ -562,7 +555,7 @@ async def expand_agent(
     space_id: str,
     agent_id: str,
     request: AgentExpandPayload,
-    user: Optional[dict] = Depends(get_current_user),
+    user: dict = Depends(require_user),
 ):
     """Orchestrated agent expansion:
     1. Fetch space + parent agent from core
@@ -571,7 +564,8 @@ async def expand_agent(
     4. Re-compute edges for the expanded space
     5. Return updated space
     """
-    # 1. Fetch space
+    # 1. Fetch space (verify ownership)
+    await _require_space_owner(space_id, user["user_id"])
     space_data = await _get(config.CORE_URL, f"/spaces/{space_id}")
     space = Space(**space_data)
 

@@ -15,33 +15,12 @@ import type {
 
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
 
-/** 获取或创建访客 ID */
-function getGuestId(): string | null {
-  let gid = localStorage.getItem('cs_guest_id')
-  if (!gid) {
-    // crypto.randomUUID requires secure context (HTTPS or localhost)
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      gid = `guest_${crypto.randomUUID()}`
-    } else {
-      // Fallback for HTTP non-localhost environments
-      gid = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
-    }
-    localStorage.setItem('cs_guest_id', gid)
-  }
-  return gid
-}
-
-/** 构建请求头，自动携带 X-Guest-ID */
+/** 构建请求头 */
 function buildHeaders(extra?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = {
+  return {
     'Content-Type': 'application/json',
     ...extra,
   }
-  const guestId = getGuestId()
-  if (guestId) {
-    headers['X-Guest-ID'] = guestId
-  }
-  return headers
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
@@ -111,7 +90,7 @@ export const api = {
     post<Space>(`/spaces/${spaceId}/agents/${agentId}/expand`, req),
 
   // Auth
-  getGithubAuthUrl: () => get<{ url: string }>('/auth/github/authorize'),
+  getZhihuAuthUrl: () => get<{ url: string }>('/auth/zhihu/authorize'),
   register: (body: { username: string; password: string; email?: string }) =>
     post<{ user: User }>('/auth/register', body),
   login: (body: { username: string; password: string }) =>

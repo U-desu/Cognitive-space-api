@@ -27,7 +27,6 @@ export interface Space {
   agents: Agent[]
   metadata: SpaceMetadata
   user_id?: string
-  guest_id?: string
   query_embedding?: number[]
   created_at?: string
 }

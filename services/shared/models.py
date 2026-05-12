@@ -67,7 +67,6 @@ class Space(BaseModel):
     agents: list[Agent]
     metadata: SpaceMetadata
     user_id: Optional[str] = None  # null = anonymous space
-    guest_id: Optional[str] = None  # visitor tracking
     query_embedding: Optional[list[float]] = None  # for deduplication
 
 
