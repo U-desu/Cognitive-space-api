@@ -1,6 +1,7 @@
 import uuid
 import time
 from typing import Optional, Dict, Any
+from urllib.parse import quote
 
 import httpx
 
@@ -24,7 +25,7 @@ def get_zhihu_authorize_url(state: str = "default") -> str:
     """生成知乎 OAuth 授权 URL."""
     return (
         f"{ZHIHU_AUTHORIZE_URL}"
-        f"?redirect_uri={ZHIHU_REDIRECT_URI}"
+        f"?redirect_uri={quote(ZHIHU_REDIRECT_URI, safe='')}"  # 必须编码特殊字符
         f"&app_id={ZHIHU_APP_ID}"
         f"&response_type=code"
         f"&state={state}"
@@ -41,8 +42,8 @@ async def exchange_code_for_token(code: str) -> Optional[str]:
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": ZHIHU_REDIRECT_URI,
-                "client_id": ZHIHU_APP_ID,
-                "client_secret": ZHIHU_APP_KEY,
+                "app_id": ZHIHU_APP_ID,
+                "app_key": ZHIHU_APP_KEY,
             },
         )
         if resp.status_code != 200:
@@ -77,8 +78,8 @@ async def handle_zhihu_callback(code: str) -> Optional[User]:
     if not zhihu_user:
         return None
 
-    # 知乎用户唯一标识：使用 url 或 name 作为 provider_id（如果接口未返回独立 id）
-    provider_id = str(zhihu_user.get("id") or zhihu_user.get("url") or zhihu_user.get("name"))
+    # 知乎用户唯一标识：使用 uid
+    provider_id = str(zhihu_user.get("uid"))
     existing = get_user_by_oauth("zhihu", provider_id)
     if existing:
         return existing
@@ -86,7 +87,7 @@ async def handle_zhihu_callback(code: str) -> Optional[User]:
     user_id = f"usr_{uuid.uuid4().hex[:12]}"
     user = User(
         user_id=user_id,
-        username=zhihu_user.get("name") or f"zhihu_{provider_id}",
+        username=zhihu_user.get("fullname") or f"zhihu_{provider_id}",
         email=zhihu_user.get("email") or None,
         avatar=zhihu_user.get("avatar_path") or None,
         auth_provider="zhihu",

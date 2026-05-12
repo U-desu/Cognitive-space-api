@@ -57,6 +57,9 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))
 
+# ── Frontend ──
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 # ── OAuth ──
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
@@ -67,5 +70,5 @@ ZHIHU_APP_ID = os.getenv("ZHIHU_APP_ID", "")
 ZHIHU_APP_KEY = os.getenv("ZHIHU_APP_KEY", "")
 ZHIHU_REDIRECT_URI = os.getenv("ZHIHU_REDIRECT_URI", "http://localhost:8000/auth/zhihu/callback")
 ZHIHU_AUTHORIZE_URL = os.getenv("ZHIHU_AUTHORIZE_URL", "https://openapi.zhihu.com/authorize")
-ZHIHU_TOKEN_URL = os.getenv("ZHIHU_TOKEN_URL", "https://openapi.zhihu.com/oauth/token")
-ZHIHU_USERINFO_URL = os.getenv("ZHIHU_USERINFO_URL", "https://openapi.zhihu.com/me")
+ZHIHU_TOKEN_URL = os.getenv("ZHIHU_TOKEN_URL", "https://openapi.zhihu.com/access_token")
+ZHIHU_USERINFO_URL = os.getenv("ZHIHU_USERINFO_URL", "https://openapi.zhihu.com/user")
