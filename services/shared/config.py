@@ -68,7 +68,7 @@ GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/au
 # ── 知乎 OAuth ──
 ZHIHU_APP_ID = os.getenv("ZHIHU_APP_ID", "")
 ZHIHU_APP_KEY = os.getenv("ZHIHU_APP_KEY", "")
-ZHIHU_REDIRECT_URI = os.getenv("ZHIHU_REDIRECT_URI", "http://localhost:8000/auth/zhihu/callback")
+ZHIHU_REDIRECT_URI = os.getenv("ZHIHU_REDIRECT_URI", "http://8.145.53.13:8000/auth/zhihu/callback")
 ZHIHU_AUTHORIZE_URL = os.getenv("ZHIHU_AUTHORIZE_URL", "https://openapi.zhihu.com/authorize")
 ZHIHU_TOKEN_URL = os.getenv("ZHIHU_TOKEN_URL", "https://openapi.zhihu.com/access_token")
 ZHIHU_USERINFO_URL = os.getenv("ZHIHU_USERINFO_URL", "https://openapi.zhihu.com/user")
