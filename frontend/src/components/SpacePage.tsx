@@ -152,7 +152,7 @@ export default function SpacePage() {
 
       <MetricsHUD />
 
-      <main className="relative flex-1" style={{ height: 'calc(100vh - 120px)' }}>
+      <main className="relative" style={{ height: 'calc(100vh - 120px)' }}>
         <UniverseScene
           onAgentClick={handleAgentClick}
           selectedAgent={selectedAgent}
