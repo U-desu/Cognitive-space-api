@@ -495,9 +495,13 @@ async def zhihu_authorize():
 
 
 @app.get("/auth/zhihu/callback")
-async def zhihu_callback(code: str):
+async def zhihu_callback(code: Optional[str] = None, authorization_code: Optional[str] = None):
     """Handle Zhihu OAuth callback."""
-    user = await handle_zhihu_callback(code)
+    # 知乎回调可能使用 code 或 authorization_code 参数名
+    actual_code = code or authorization_code
+    if not actual_code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    user = await handle_zhihu_callback(actual_code)
     if not user:
         raise HTTPException(status_code=400, detail="Zhihu authentication failed")
     token = create_access_token(user.user_id)
