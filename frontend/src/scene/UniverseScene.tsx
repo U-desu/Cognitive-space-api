@@ -109,7 +109,7 @@ export default function UniverseScene({
   const isDark = true  /* all new themes are dark */
 
   return (
-    <div className="w-full h-full relative bg-space-bg">
+    <div className="absolute inset-0 bg-space-bg">
       {/* Back button (focus mode only) */}
       {isFocus && (
         <button
@@ -141,6 +141,7 @@ export default function UniverseScene({
       <Canvas
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
+        style={{ width: '100%', height: '100%' }}
         onCreated={({ gl }) => gl.setClearColor(appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : appTheme === 'zhihu' ? '#f6f6f6' : '#060f0a')}
       >
         <SceneBackground theme={appTheme} />
