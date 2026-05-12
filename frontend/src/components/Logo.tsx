@@ -7,8 +7,8 @@ interface LogoProps {
   hoverable?: boolean
 }
 
-const ICON_DEFAULT = '/icon/icon.png'
-const ICON_HOVER = '/icon/icon_side.png'
+const ICON_DEFAULT = '/icon-blue/icon.png'
+const ICON_HOVER = '/icon-blue/icon_side.png'
 
 export default function Logo({ size = 28, className = '', onClick, hoverable = false }: LogoProps) {
   const [hovered, setHovered] = useState(false)

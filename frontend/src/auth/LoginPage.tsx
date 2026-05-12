@@ -33,6 +33,14 @@ function TechBackground() {
       ],
       lines: 'rgba(0,255,136,0.03)',
     },
+    zhihu: {
+      glows: [
+        { color: '#0084ff', x: '10%', y: '15%', size: 300, blur: 120 },
+        { color: '#00b4ff', x: '85%', y: '20%', size: 250, blur: 100 },
+        { color: '#0066ff', x: '50%', y: '85%', size: 350, blur: 140 },
+      ],
+      lines: 'rgba(0,132,255,0.03)',
+    },
   }
 
   const c = config[theme]
@@ -82,6 +90,7 @@ export default function LoginPage() {
     cyberpunk: '#00f0ff',
     deepspace: '#3b82f6',
     matrix: '#00ff88',
+    zhihu: '#0084ff',
   }
   const accent = accentColors[theme]
 
@@ -126,7 +135,7 @@ export default function LoginPage() {
         <div
           className="backdrop-blur-xl rounded-[2rem] shadow-2xl border p-8 md:p-10"
           style={{
-            backgroundColor: theme === 'cyberpunk' ? 'rgba(15,15,26,0.9)' : theme === 'deepspace' ? 'rgba(30,41,59,0.9)' : 'rgba(15,31,20,0.9)',
+            backgroundColor: theme === 'cyberpunk' ? 'rgba(15,15,26,0.9)' : theme === 'deepspace' ? 'rgba(30,41,59,0.9)' : theme === 'zhihu' ? 'rgba(255,255,255,0.9)' : 'rgba(15,31,20,0.9)',
             borderColor: accent + '25',
             boxShadow: `0 25px 50px -12px ${accent}18`,
           }}

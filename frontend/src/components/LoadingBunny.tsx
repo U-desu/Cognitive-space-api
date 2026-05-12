@@ -43,6 +43,7 @@ export default function LoadingBunny({ query }: Props) {
     cyberpunk: { primary: '#00f0ff', secondary: '#ff00a0', track: 'rgba(0,240,255,0.1)' },
     deepspace: { primary: '#3b82f6', secondary: '#8b5cf6', track: 'rgba(59,130,246,0.1)' },
     matrix: { primary: '#00ff88', secondary: '#f59e0b', track: 'rgba(0,255,136,0.1)' },
+    zhihu: { primary: '#0084ff', secondary: '#00b4ff', track: 'rgba(0,132,255,0.1)' },
   }
   const accent = accentColors[theme]
 

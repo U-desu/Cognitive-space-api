@@ -1,4 +1,4 @@
-export type ThemeId = 'cyberpunk' | 'deepspace' | 'matrix'
+export type ThemeId = 'cyberpunk' | 'deepspace' | 'matrix' | 'zhihu'
 
 export interface ThemeMeta {
   id: ThemeId
@@ -9,37 +9,62 @@ export interface ThemeMeta {
 }
 
 /** 统一品牌 Logo */
-export const BRAND_LOGO = '/icon/icon.png'
+export const BRAND_LOGO = '/icon-blue/icon.png'
 
 export const THEMES: ThemeMeta[] = [
+  {
+    id: 'zhihu',
+    name: '知乎',
+    tagline: '认真 · 专业 · 友善',
+    icon: '/icon-blue/icon.png',
+    accent: '#0084ff',
+  },
   {
     id: 'cyberpunk',
     name: '霓虹迷城',
     tagline: '赛博朋克 · 霓虹数据流',
-    icon: '/icon/icon.png',
+    icon: '/icon-blue/icon.png',
     accent: '#00f0ff',
   },
   {
     id: 'deepspace',
     name: '星际认知',
     tagline: '深空探索 · 星河图谱',
-    icon: '/icon/icon.png',
+    icon: '/icon-blue/icon.png',
     accent: '#3b82f6',
   },
   {
     id: 'matrix',
     name: '神经织网',
     tagline: '认知矩阵 · 神经网络',
-    icon: '/icon/icon.png',
+    icon: '/icon-blue/icon.png',
     accent: '#00ff88',
   },
 ]
 
-export const DEFAULT_THEME: ThemeId = 'cyberpunk'
+export const DEFAULT_THEME: ThemeId = 'zhihu'
 
 /** 获取主题特定的 CSS 变量映射（供 JS 中直接读取） */
 export function getThemeVars(theme: ThemeId): Record<string, string> {
   switch (theme) {
+    case 'zhihu':
+      return {
+        '--app-bg': '#f6f6f6',
+        '--app-surface': '#ffffff',
+        '--app-card': '#ffffff',
+        '--app-card-hover': '#f6f6f6',
+        '--app-border': '#ebebeb',
+        '--app-border-accent': 'rgba(0, 132, 255, 0.25)',
+        '--app-text': '#121212',
+        '--app-text-secondary': '#8590a6',
+        '--app-text-muted': '#c2c2c2',
+        '--accent-primary': '#0084ff',
+        '--accent-secondary': '#0066ff',
+        '--accent-tertiary': '#00b4ff',
+        '--success': '#00c853',
+        '--warning': '#ff9800',
+        '--danger': '#f44336',
+      }
     case 'cyberpunk':
       return {
         '--app-bg': '#050508',

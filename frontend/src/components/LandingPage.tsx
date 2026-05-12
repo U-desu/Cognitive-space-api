@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Compass, ArrowRight, Briefcase, Code, Heart } from 'lucide-react'
 import { api } from '../api'
 import { useSpaceState } from '../store/SpaceContext'
-import { useAuth } from '../auth/useAuth'
+// import { useAuth } from '../auth/useAuth'
 import { useTheme } from '../theme/ThemeContext'
-import ThemeSwitcher from '../theme/ThemeSwitcher'
+// import ThemeSwitcher from '../theme/ThemeSwitcher'
 import LoadingBunny from './LoadingBunny'
 import SpaceHistorySidebar from './SpaceHistorySidebar'
 import DedupModal from './DedupModal'
@@ -37,6 +37,11 @@ function ThemeGlow() {
       { color: '#00ff88', x: '18%', y: '22%', size: 280, blur: 110 },
       { color: '#00d4aa', x: '78%', y: '28%', size: 260, blur: 100 },
       { color: '#f59e0b', x: '50%', y: '78%', size: 340, blur: 130 },
+    ],
+    zhihu: [
+      { color: '#0084ff', x: '15%', y: '20%', size: 300, blur: 120 },
+      { color: '#00b4ff', x: '80%', y: '30%', size: 250, blur: 100 },
+      { color: '#0066ff', x: '50%', y: '80%', size: 350, blur: 140 },
     ],
   }
 
@@ -71,7 +76,7 @@ export default function LandingPage() {
   const [dedupSimilarity, setDedupSimilarity] = useState(0)
   const navigate = useNavigate()
   const { dispatch } = useSpaceState()
-  const { user, logout } = useAuth()
+  // const { user, logout } = useAuth()
   const { theme } = useTheme()
 
   useEffect(() => {
@@ -136,6 +141,7 @@ export default function LandingPage() {
     cyberpunk: '#00f0ff',
     deepspace: '#3b82f6',
     matrix: '#00ff88',
+    zhihu: '#0084ff',
   }
   const accent = accentColors[theme]
 
@@ -154,10 +160,10 @@ export default function LandingPage() {
         onClose={() => setShowDedup(false)}
       />
 
-      {/* 顶部导航栏 */}
+      {/* 顶部导航栏已隐藏 */}
+      {/*
       <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-end px-6 py-3">
         <div className="flex items-center gap-3">
-          <ThemeSwitcher />
           {user?.avatar ? (
             <img src={user.avatar} alt="" className="w-8 h-8 rounded-full border-2" style={{ borderColor: accent + '50' }} />
           ) : (
@@ -177,6 +183,7 @@ export default function LandingPage() {
           </button>
         </div>
       </header>
+      */}
 
       <div
         className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-14 transition-all duration-300"
@@ -191,7 +198,7 @@ export default function LandingPage() {
             <Logo size={40} />
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-space-text tracking-tight text-glow">
-            知乎空间
+            知乎 X SPACE
           </h1>
         </div>
 

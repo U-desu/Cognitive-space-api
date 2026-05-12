@@ -58,6 +58,7 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
     cyberpunk: '#00f0ff',
     deepspace: '#3b82f6',
     matrix: '#00ff88',
+    zhihu: '#0084ff',
   }
   const accent = accentColors[theme]
 
@@ -85,16 +86,16 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
             style={{ cursor: isOpen ? 'default' : 'pointer' }}
           >
             <img
-              src={mainIconHover && !isOpen ? '/icon/icon_side.png' : '/icon/icon.png'}
+              src={mainIconHover && !isOpen ? '/icon-blue/icon_side.png' : '/icon-blue/icon.png'}
               alt=""
               className="w-6 h-6 object-contain"
             />
           </button>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-            <img src="/icon/icon_idea.png" alt="" className="w-6 h-6 object-contain opacity-80" />
+            <img src="/icon-blue/icon_idea.png" alt="" className="w-6 h-6 object-contain opacity-80" />
           </div>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-            <img src="/icon/icon_history.png" alt="" className="w-6 h-6 object-contain opacity-80" />
+            <img src="/icon-blue/icon_history.png" alt="" className="w-6 h-6 object-contain opacity-80" />
           </div>
         </div>
 
@@ -109,14 +110,14 @@ export default function SpaceHistorySidebar({ isOpen, onToggle }: Props) {
               className="w-full h-full rounded-lg flex items-center justify-center transition-all hover:scale-105 hover:bg-white/5"
               title="收起"
             >
-              <img src="/icon/icon_side.png" alt="" className="w-6 h-6 object-contain opacity-80" />
+              <img src="/icon-blue/icon_side.png" alt="" className="w-6 h-6 object-contain opacity-80" />
             </button>
           </div>
           <div className="h-8 flex items-center">
-            <span className="text-sm text-white font-medium">新的问题空间</span>
+            <span className="text-sm font-medium" style={{ color: theme === 'zhihu' ? '#121212' : '#ffffff' }}>新的问题空间</span>
           </div>
           <div className="h-8 flex items-center">
-            <span className="text-sm text-white font-medium">历史问题空间</span>
+            <span className="text-sm font-medium" style={{ color: theme === 'zhihu' ? '#121212' : '#ffffff' }}>历史问题空间</span>
           </div>
         </div>
       </div>

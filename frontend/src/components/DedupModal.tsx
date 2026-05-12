@@ -20,6 +20,7 @@ export default function DedupModal({ isOpen, existingSpace, similarity, onReuse,
     cyberpunk: '#00f0ff',
     deepspace: '#3b82f6',
     matrix: '#00ff88',
+    zhihu: '#0084ff',
   }
   const accent = accentColors[theme]
 

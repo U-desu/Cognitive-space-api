@@ -6,7 +6,7 @@ import UniverseScene from '../scene/UniverseScene'
 import AgentPanel from './AgentPanel'
 import MetricsHUD from './MetricsHUD'
 import ShareCard from './ShareCard'
-import ThemeSwitcher from '../theme/ThemeSwitcher'
+// import ThemeSwitcher from '../theme/ThemeSwitcher'
 import { Loader2, Share2 } from 'lucide-react'
 import Logo from './Logo'
 
@@ -139,7 +139,7 @@ export default function SpacePage() {
           </h2>
         </div>
         <div className="flex items-center gap-3">
-          <ThemeSwitcher />
+          {/* ThemeSwitcher hidden */}
           <button
             onClick={() => setShowShare(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 text-xs font-bold transition-colors"

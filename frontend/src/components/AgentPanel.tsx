@@ -38,7 +38,7 @@ const STANCE_LABEL: Record<string, string> = {
 }
 
 function getStanceColors(theme: string) {
-  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'
+  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : theme === 'zhihu' ? '#0084ff' : '#00ff88'
   return {
     pro: { bg: accent + '18', text: accent },
     con: { bg: '#ff444418', text: '#ff4444' },

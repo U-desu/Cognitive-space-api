@@ -34,8 +34,8 @@ export default function CenterNode({ label, isDark, theme = 'cyberpunk', onClick
       <mesh>
         <sphereGeometry args={[3.0, 64, 64]} />
         <meshStandardMaterial
-          color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'}
-          emissive={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'}
+          color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : theme === 'zhihu' ? '#0084ff' : '#00ff88'}
+          emissive={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : theme === 'zhihu' ? '#0084ff' : '#00ff88'}
           emissiveIntensity={1.5}
           roughness={0.8}
           metalness={0.1}
@@ -46,7 +46,7 @@ export default function CenterNode({ label, isDark, theme = 'cyberpunk', onClick
       <mesh>
         <sphereGeometry args={[4.0, 32, 32]} />
         <meshBasicMaterial
-          color={theme === 'cyberpunk' ? '#b026ff' : theme === 'deepspace' ? '#8b5cf6' : '#00d4aa'}
+          color={theme === 'cyberpunk' ? '#b026ff' : theme === 'deepspace' ? '#8b5cf6' : theme === 'zhihu' ? '#00b4ff' : '#00d4aa'}
           transparent
           opacity={0.1}
           depthWrite={false}
@@ -55,7 +55,7 @@ export default function CenterNode({ label, isDark, theme = 'cyberpunk', onClick
         />
       </mesh>
 
-      <pointLight position={[0, 0, 0]} intensity={1.5} color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'} distance={60} decay={1.5} />
+      <pointLight position={[0, 0, 0]} intensity={1.5} color={theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : theme === 'zhihu' ? '#0084ff' : '#00ff88'} distance={60} decay={1.5} />
 
       {/* Billboard label below the sun */}
       <group ref={labelRef} position={[0, -5.0, 0]}>

@@ -141,7 +141,7 @@ export default function UniverseScene({
       <Canvas
         camera={{ position: [cameraDistance, cameraDistance * 0.5, cameraDistance], fov: 60, near: 0.1, far: 1000 }}
         gl={{ antialias: true, alpha: false }}
-        onCreated={({ gl }) => gl.setClearColor(appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : '#060f0a')}
+        onCreated={({ gl }) => gl.setClearColor(appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : appTheme === 'zhihu' ? '#f6f6f6' : '#060f0a')}
       >
         <SceneBackground theme={appTheme} />
 
@@ -217,7 +217,7 @@ export default function UniverseScene({
             }}
           >
             <sphereGeometry args={[500, 32, 32]} />
-            <meshBasicMaterial color={appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : '#060f0a'} transparent opacity={0} side={THREE.BackSide} />
+            <meshBasicMaterial color={appTheme === 'cyberpunk' ? '#050508' : appTheme === 'deepspace' ? '#0a0f1e' : appTheme === 'zhihu' ? '#f6f6f6' : '#060f0a'} transparent opacity={0} side={THREE.BackSide} />
           </mesh>
         )}
 
@@ -240,7 +240,7 @@ export default function UniverseScene({
 
 /** Simple tooltip shown when hovering an agent */
 function AgentTooltip({ agent, theme }: { agent: Agent; theme: string }) {
-  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : '#00ff88'
+  const accent = theme === 'cyberpunk' ? '#00f0ff' : theme === 'deepspace' ? '#3b82f6' : theme === 'zhihu' ? '#0084ff' : '#00ff88'
   const color = agent.stance === 'pro' ? accent : agent.stance === 'con' ? '#ff4444' : '#f59e0b'
   const isChild = !!agent.parent_id
   return (
@@ -262,7 +262,7 @@ function AgentTooltip({ agent, theme }: { agent: Agent; theme: string }) {
 /** Updates the renderer clear colour when the theme changes at runtime */
 function SceneBackground({ theme }: { theme: string }) {
   const { gl } = useThree()
-  const color = theme === 'cyberpunk' ? '#050508' : theme === 'deepspace' ? '#0a0f1e' : '#060f0a'
+  const color = theme === 'cyberpunk' ? '#050508' : theme === 'deepspace' ? '#0a0f1e' : theme === 'zhihu' ? '#f6f6f6' : '#060f0a'
   useEffect(() => {
     gl.setClearColor(color)
   }, [gl, color])
