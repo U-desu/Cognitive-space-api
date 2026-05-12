@@ -58,7 +58,7 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))
 
 # ── Frontend ──
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://8.145.53.13:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://8.145.53.13")
 
 # ── OAuth ──
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
