@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 import httpx
 
-from services.shared.models import User
+from services.shared.models import User, AuthProvider
 from services.shared.config import (
     ZHIHU_APP_ID,
     ZHIHU_APP_KEY,
@@ -79,7 +79,10 @@ async def handle_zhihu_callback(code: str) -> Optional[User]:
         return None
 
     # 知乎用户唯一标识：使用 uid
-    provider_id = str(zhihu_user.get("uid"))
+    uid = zhihu_user.get("uid")
+    if not uid:
+        return None
+    provider_id = str(uid)
     existing = get_user_by_oauth("zhihu", provider_id)
     if existing:
         return existing
@@ -90,7 +93,7 @@ async def handle_zhihu_callback(code: str) -> Optional[User]:
         username=zhihu_user.get("fullname") or f"zhihu_{provider_id}",
         email=zhihu_user.get("email") or None,
         avatar=zhihu_user.get("avatar_path") or None,
-        auth_provider="zhihu",
+        auth_provider=AuthProvider.ZHIHU,
         created_at=int(time.time()),
     )
     create_user(user)

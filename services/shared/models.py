@@ -296,6 +296,7 @@ class ExportResponse(BaseModel):
 class AuthProvider(str, Enum):
     GITHUB = "github"
     PASSWORD = "password"
+    ZHIHU = "zhihu"
 
 
 class User(BaseModel):
