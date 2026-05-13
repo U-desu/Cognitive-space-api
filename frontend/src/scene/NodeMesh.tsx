@@ -87,6 +87,20 @@ export default function NodeMesh({
         mat.emissive.copy(baseColor).lerp(yellowColor, t)
         mat.emissiveIntensity = 0.2 + t * 0.9 // 0.2 ~ 1.1
       }
+    } else {
+      // Reset materials to base values when pulse stops
+      if (bgMeshRef.current) {
+        const mat = bgMeshRef.current.material as THREE.MeshBasicMaterial
+        mat.color.copy(whiteColor)
+        mat.opacity = 0.2
+      }
+      if (fallbackMeshRef.current) {
+        const mat = fallbackMeshRef.current.material as THREE.MeshStandardMaterial
+        const baseColor = new THREE.Color(color)
+        mat.color.copy(baseColor)
+        mat.emissive.copy(baseColor)
+        mat.emissiveIntensity = isNetworkHighlighted ? 1.0 : isSelected ? 0.6 : isHovered ? 0.4 : 0.2
+      }
     }
   })
 

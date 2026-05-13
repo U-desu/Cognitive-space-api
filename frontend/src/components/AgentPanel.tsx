@@ -128,6 +128,15 @@ export default function AgentPanel({ agentId, onClose, onDebatingChange, onExpan
     }
   }, [page, stop])
 
+  // Cleanup on unmount: abort stream and clear pulse states
+  useEffect(() => {
+    return () => {
+      stop()
+      onDebatingChangeRef.current?.(null)
+      onExpandingChangeRef.current?.(null)
+    }
+  }, [stop])
+
   function getOpponent(edge: Edge): Agent | null {
     const id = edge.source === agentId ? edge.target : edge.source
     return agents.find((a) => a.agent_id === id) ?? null
@@ -560,7 +569,11 @@ function DebateContent({
               {participants.map((p) => {
                 const color = stanceColors[p.stance as keyof typeof stanceColors]?.text || '#94a3b8'
                 return (
-                  <button key={p.agent_id} onClick={() => onCluster(p.agent_id)} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
+                  <button
+                    key={p.agent_id}
+                    onClick={() => { if (isBusy) { onShowBusyToast?.(); return } onCluster(p.agent_id) }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-transparent transition-all ${isBusy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50 hover:border-indigo-100'}`}
+                  >
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: color + '30' }}>
                       {p.stance === 'pro' ? '✅' : p.stance === 'con' ? '❌' : '⚖️'}
                     </div>
@@ -568,7 +581,7 @@ function DebateContent({
                   </button>
                 )
               })}
-              <div className="ml-auto text-[10px] text-indigo-400 font-bold animate-pulse">点击查看聚类 →</div>
+              <div className="ml-auto text-[10px] text-indigo-400 font-bold animate-pulse">点击查看聚类 ←</div>
             </div>
           </div>
         )}

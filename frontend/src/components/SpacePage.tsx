@@ -90,6 +90,8 @@ export default function SpacePage() {
     }
     setSelectedAgent(null)
     setViewMode('global')
+    setExpandingAgentId(null)
+    setDebatingAgentIds([])
   }
 
   const handleResetCamera = () => {
